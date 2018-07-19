@@ -165,7 +165,7 @@ class Cron_Command extends EE_Command {
 		foreach ( $crons as &$cron ) {
 			$job_type         = $cron['site'] === 'host' ? 'job-local' : 'job-exec';
 			$cron['job_type'] = $job_type;
-			$cron['id']       = preg_replace( '/[^a-zA-Z0-9\@]/', '_', $cron['command'] );
+			$cron['id']       = $cron['sitename'] . '-' . preg_replace( '/[^a-zA-Z0-9\@]/', '_', $cron['command'] ) . '-' . EE\Utils\random_password( 5 );
 
 			if ( $cron['site'] !== 'host' ) {
 				$cron['container'] = $this->site_php_container( $cron['site'] );
