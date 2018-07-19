@@ -67,10 +67,7 @@ class Cron_Command extends EE_Command {
 	 *     $ ee cron add host --command='wp cron event run --due-now' --schedule='@every 10m'
 	 *
 	 *     # Adds a cron job to host running EasyEngine
-	 *     $ ee cron add host --command='wp cron event run --due-now' --schedule='@every 10m'
-	 *
-	 *     # Adds a cron job to host running EasyEngine
-	 *     $ ee cron add host --command='wp cron event run --due-now' --schedule='@every 10m'
+	 *     $ ee cron add host --command='wp media regenerate --yes' --schedule='@weekly'
 	 *
 	 */
 	public function add( $args, $assoc_args ) {
