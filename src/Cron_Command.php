@@ -11,12 +11,10 @@ class Cron_Command extends EE_Command {
 	/**
 	 * Runs cron container if it's not running
 	 */
-	public function __construct()
-	{
+	public function __construct() {
 		if ( 'running' !== EE_DOCKER::container_status( 'ee-cron-scheduler' ) ) {
 			$cron_scheduler_run_command = 'docker run --name ee-cron-scheduler --restart=always -d -v ' . EE_CONF_ROOT . '/cron:/etc/ofelia:ro -v /var/run/docker.sock:/var/run/docker.sock:ro mcuadros/ofelia:latest';
-			if ( EE_DOCKER::boot_container( 'ee-cron-scheduler', $cron_scheduler_run_command) ) {
-			} else {
+			if ( ! EE_DOCKER::boot_container( 'ee-cron-scheduler', $cron_scheduler_run_command ) ) {
 				EE::error( "There was some error in starting ee-cron-scheduler container. Please check logs." );
 			}
 		}
@@ -49,24 +47,67 @@ class Cron_Command extends EE_Command {
 	public function add( $args, $assoc_args ) {
 		EE\Utils\delem_log( 'ee cron add start' );
 
-		if( !isset($args[0]) || $args[0] !== 'host' ) {
+		if ( ! isset( $args[0] ) || $args[0] !== 'host' ) {
 			$args = EE\Utils\set_site_arg( $args, 'cron' );
 		}
 
-		$site = EE\Utils\remove_trailing_slash( $args[0] );
-		$command   = $assoc_args['command'];
-		$schedule  = $assoc_args['schedule'];
+		$site     = EE\Utils\remove_trailing_slash( $args[0] );
+		$command  = $assoc_args['command'];
+		$schedule = $assoc_args['schedule'];
 
 		// TODO: check if id exists before insert
-		EE::db()->insert([
-			'site' => $site,
-			'command' => $command,
-			'schedule' => $schedule
-		], 'cron' );
+		EE::db()->insert(
+			[
+				'site'     => $site,
+				'command'  => $command,
+				'schedule' => $schedule
+			], 'cron'
+		);
 
 		$this->update_cron_config();
 
 		EE\Utils\delem_log( 'ee cron add end' );
+	}
+
+	/**
+	 * Lists scheduled cron jobs.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [<site-name>]
+	 * : Name of site to whose cron will be displayed.
+	 *
+	 * [--all]
+	 * : View all cron jobs.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     # Lists all scheduled cron jobs
+	 *     $ ee cron list
+	 *
+	 *     # Lists all scheduled cron jobs of a site
+	 *     $ ee cron list example.com
+	 * @subcommand list
+	 */
+	public function _list( $args, $assoc_args ) {
+		$where = [];
+		$all   = EE\Utils\get_flag_value( $assoc_args, 'all' );
+
+		if ( ( ! isset( $args[0] ) || $args[0] !== 'host' ) && ! $all ) {
+			$args = EE\Utils\set_site_arg( $args, 'cron' );
+		}
+
+		if ( isset( $args[0] ) ) {
+			$where = [ 'site' => $args[0] ];
+		}
+
+		$crons = EE::db()->select( [], $where, 'cron' );
+
+		if ( false === $crons ) {
+			EE::error( 'No cron jobs found.' );
+		}
+
+		EE\Utils\format_items( 'table', $crons, [ 'id', 'site', 'command', 'schedule' ] );
 	}
 
 
@@ -85,22 +126,48 @@ class Cron_Command extends EE_Command {
 	 * Generates and returns cron config from DB
 	 */
 	private function generate_cron_config() {
-		$config_template = file_get_contents(__DIR__ . '/../templates/config.ini.mustache' );
-		$crons = EE::db()->select( [], [],'cron' );
-		$crons = $crons === false ? [] : $crons ;
+		$config_template = file_get_contents( __DIR__ . '/../templates/config.ini.mustache' );
+		$crons           = EE::db()->select( [], [], 'cron' );
+		$crons           = $crons === false ? [] : $crons;
 		foreach ( $crons as &$cron ) {
-			$job_type = $cron['site'] === 'host' ? 'job-local' : 'job-exec' ;
+			$job_type         = $cron['site'] === 'host' ? 'job-local' : 'job-exec';
 			$cron['job_type'] = $job_type;
 
-			if($cron['site'] !== 'host')
-				$cron['container'] = $this->site_php_container($cron['site']);
+			if ( $cron['site'] !== 'host' ) {
+				$cron['container'] = $this->site_php_container( $cron['site'] );
+			}
 		}
 
 		$me = new Mustache_Engine();
+
 		return $me->render( $config_template, $crons );
 	}
 
-
+	/**
+	 * Runs a cron job
+	 *
+	 * ## OPTIONS
+	 *
+	 * <cron-id>
+	 * : ID of cron to run.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     # Lists all scheduled cron jobs
+	 *     $ ee cron delete 1
+	 *
+	 *
+	 * @subcommand run-now
+	 */
+	public function run_now( $args ) {
+		$result = EE::db()->select( [ 'site', 'command' ], [ 'id' => $args[0] ], 'cron' );
+		if ( empty( $result ) ) {
+			EE::error( 'No such cron with id: ' . $args[0] );
+		}
+		$container = $this->site_php_container( $result[0]['site'] );
+		$command   = $result[0]['command'];
+		\EE\Utils\default_launch( "docker exec $container $command", true, true );
+	}
 
 	/**
 	 * Deletes a cron job
@@ -114,21 +181,20 @@ class Cron_Command extends EE_Command {
 	 *
 	 *     # Lists all scheduled cron jobs
 	 *     $ ee cron delete 1
-	 *		TODO: Add relatable ID
+	 *        TODO: Add relatable ID
 	 *
 	 */
 	public function delete( $args, $assoc_args ) {
 
-		EE::db()->delete(['id' => $args[0]], 'cron' );
+		EE::db()->delete( [ 'id' => $args[0] ], 'cron' );
 		$this->update_cron_config();
 	}
-
 
 
 	/**
 	 * Returns php container name of a site
 	 */
 	private function site_php_container( $site ) {
-		return str_replace('.','', $site ) . '_php_1';
+		return str_replace( '.', '', $site ) . '_php_1';
 	}
 }
