@@ -33,12 +33,41 @@ class Cron_Command extends EE_Command {
 	 *
 	 * --schedule=<schedule>
 	 * : Time to schedule. Format is same as linux cron.
-	 *   TODO: Add @every format
+	 *
+	 * We also have helper to easily specify scheduling format:
+	 *
+	 *  Entry                  | Description                                | Equivalent To
+     *  -----                  | -----------                                | -------------
+     *  @yearly (or @annually) | Run once a year, midnight, Jan. 1st        | 0 0 1 1 *
+     *  @monthly               | Run once a month, midnight, first of month | 0 0 1 * *
+     *  @weekly                | Run once a week, midnight between Sat/Sun  | 0 0 * * 0
+     *  @daily (or @midnight)  | Run once a day, midnight                   | 0 0 * * *
+     *  @hourly                | Run once an hour, beginning of hour        | 0 * * * *
+	 *
+	 * You may also schedule a job to execute at fixed intervals, starting at the time it's added or cron is run.
+	 * This is supported by following format:
+	 *
+	 * @every <duration>
+	 *
+	 * Where duration can be combination of:
+	 *    <number>h  - hour
+	 *    <number>m  - minute
+	 *    <number>s  - second
+	 *    <number>us - microseconds
+	 *    <number>ns - nanoseconds
+	 *
+	 *    So 1h10m2s is also a valid format
 	 *
 	 * ## EXAMPLES
 	 *
-	 *     # Adds a cron job to a site
+	 *     # Adds a cron job on example.com every 10 minutes
 	 *     $ ee cron add example.com --command='wp cron event run --due-now' --schedule='@every 10m'
+	 *
+	 *     # Adds a cron job to host running EasyEngine
+	 *     $ ee cron add host --command='wp cron event run --due-now' --schedule='@every 10m'
+	 *
+	 *     # Adds a cron job to host running EasyEngine
+	 *     $ ee cron add host --command='wp cron event run --due-now' --schedule='@every 10m'
 	 *
 	 *     # Adds a cron job to host running EasyEngine
 	 *     $ ee cron add host --command='wp cron event run --due-now' --schedule='@every 10m'
@@ -62,14 +91,11 @@ class Cron_Command extends EE_Command {
 			}
 		}
 
-		// TODO: check if id exists before insert
-		EE::db()->insert(
-			[
-				'site'     => $site,
-				'command'  => $command,
-				'schedule' => $schedule
-			], 'cron'
-		);
+		EE::db()->insert([
+			'site' => $site,
+			'command' => $command,
+			'schedule' => $schedule
+		], 'cron' );
 
 		$this->update_cron_config();
 
