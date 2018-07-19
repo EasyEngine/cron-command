@@ -52,8 +52,15 @@ class Cron_Command extends EE_Command {
 		}
 
 		$site     = EE\Utils\remove_trailing_slash( $args[0] );
-		$command  = $assoc_args['command'];
-		$schedule = $assoc_args['schedule'];
+		$command  = EE\Utils\get_flag_value( $assoc_args, 'command' );
+		$schedule = EE\Utils\get_flag_value( $assoc_args, 'schedule' );
+
+		if ( '@' !== substr( trim( $schedule ), 0, 1 ) ) {
+			$schedule_length = strlen( explode( ' ', trim( $schedule ) ) );
+			if ( $schedule_length <= 5 ) {
+				$schedule = '0 ' . trim( $schedule );
+			}
+		}
 
 		// TODO: check if id exists before insert
 		EE::db()->insert(
@@ -132,6 +139,7 @@ class Cron_Command extends EE_Command {
 		foreach ( $crons as &$cron ) {
 			$job_type         = $cron['site'] === 'host' ? 'job-local' : 'job-exec';
 			$cron['job_type'] = $job_type;
+			$cron['id']       = preg_replace( '/[^a-zA-Z0-9\@]/', '_', $cron['command'] );
 
 			if ( $cron['site'] !== 'host' ) {
 				$cron['container'] = $this->site_php_container( $cron['site'] );
