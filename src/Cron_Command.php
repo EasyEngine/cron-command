@@ -13,7 +13,7 @@ class Cron_Command extends EE_Command {
 	 */
 	public function __construct() {
 		if ( 'running' !== EE_DOCKER::container_status( 'ee-cron-scheduler' ) ) {
-			$cron_scheduler_run_command = 'docker run --name ee-cron-scheduler --restart=always -d -v ' . EE_CONF_ROOT . '/cron:/etc/ofelia:ro -v /var/run/docker.sock:/var/run/docker.sock:ro mcuadros/ofelia:latest';
+			$cron_scheduler_run_command = 'docker run --name ee-cron-scheduler --restart=always -d -v ' . EE_CONF_ROOT . '/cron:/etc/ofelia:ro -v /var/run/docker.sock:/var/run/docker.sock:ro easyengine/ofelia:latest';
 			if ( ! EE_DOCKER::boot_container( 'ee-cron-scheduler', $cron_scheduler_run_command ) ) {
 				EE::error( "There was some error in starting ee-cron-scheduler container. Please check logs." );
 			}
@@ -32,7 +32,7 @@ class Cron_Command extends EE_Command {
 	 * : Command to schedule.
 	 *
 	 * --schedule=<schedule>
-	 * : Time to schedule. Format is same as linux cron.
+	 * : Time to schedule. Format is same as Linux cron.
 	 *
 	 * We also have helper to easily specify scheduling format:
 	 *
@@ -92,7 +92,7 @@ class Cron_Command extends EE_Command {
 		}
 
 		EE::db()->insert([
-			'site' => $site,
+			'sitename' => $site,
 			'command' => $command,
 			'schedule' => $schedule
 		], 'cron' );
@@ -108,7 +108,7 @@ class Cron_Command extends EE_Command {
 	 * ## OPTIONS
 	 *
 	 * [<site-name>]
-	 * : Name of site to whose cron will be displayed.
+	 * : Name of site whose cron will be displayed.
 	 *
 	 * [--all]
 	 * : View all cron jobs.
@@ -131,7 +131,7 @@ class Cron_Command extends EE_Command {
 		}
 
 		if ( isset( $args[0] ) ) {
-			$where = [ 'site' => $args[0] ];
+			$where = [ 'sitename' => $args[0] ];
 		}
 
 		$crons = EE::db()->select( [], $where, 'cron' );
@@ -140,7 +140,7 @@ class Cron_Command extends EE_Command {
 			EE::error( 'No cron jobs found.' );
 		}
 
-		EE\Utils\format_items( 'table', $crons, [ 'id', 'site', 'command', 'schedule' ] );
+		EE\Utils\format_items( 'table', $crons, [ 'id', 'sitename', 'command', 'schedule' ] );
 	}
 
 
@@ -163,12 +163,12 @@ class Cron_Command extends EE_Command {
 		$crons           = EE::db()->select( [], [], 'cron' );
 		$crons           = $crons === false ? [] : $crons;
 		foreach ( $crons as &$cron ) {
-			$job_type         = $cron['site'] === 'host' ? 'job-local' : 'job-exec';
+			$job_type         = $cron['sitename'] === 'host' ? 'job-local' : 'job-exec';
 			$cron['job_type'] = $job_type;
 			$cron['id']       = $cron['sitename'] . '-' . preg_replace( '/[^a-zA-Z0-9\@]/', '_', $cron['command'] ) . '-' . EE\Utils\random_password( 5 );
 
-			if ( $cron['site'] !== 'host' ) {
-				$cron['container'] = $this->site_php_container( $cron['site'] );
+			if ( $cron['sitename'] !== 'host' ) {
+				$cron['container'] = $this->site_php_container( $cron['sitename'] );
 			}
 		}
 
@@ -194,11 +194,11 @@ class Cron_Command extends EE_Command {
 	 * @subcommand run-now
 	 */
 	public function run_now( $args ) {
-		$result = EE::db()->select( [ 'site', 'command' ], [ 'id' => $args[0] ], 'cron' );
+		$result = EE::db()->select( [ 'sitename', 'command' ], [ 'id' => $args[0] ], 'cron' );
 		if ( empty( $result ) ) {
 			EE::error( 'No such cron with id: ' . $args[0] );
 		}
-		$container = $this->site_php_container( $result[0]['site'] );
+		$container = $this->site_php_container( $result[0]['sitename'] );
 		$command   = $result[0]['command'];
 		\EE\Utils\default_launch( "docker exec $container $command", true, true );
 	}
@@ -218,7 +218,7 @@ class Cron_Command extends EE_Command {
 	 *        TODO: Add relatable ID
 	 *
 	 */
-	public function delete( $args, $assoc_args ) {
+	public function delete( $args ) {
 
 		EE::db()->delete( [ 'id' => $args[0] ], 'cron' );
 		$this->update_cron_config();
