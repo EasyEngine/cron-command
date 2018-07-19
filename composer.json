@@ -1,0 +1,28 @@
+{
+    "name": "easyengine/cron-command",
+    "description": "Manages cron in EasyEngine",
+    "type": "ee-cli-package",
+    "homepage": "https://github.com/easyengine/cron-command",
+    "license": "MIT",
+    "authors": [],
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "autoload": {
+        "psr-4": {
+            "": "src/"
+        },
+        "files": [ "cron-command.php" ]
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-master": "1.x-dev"
+        },
+        "bundled": true,
+        "commands": [
+            "cron add",
+            "cron delete",
+            "cron list",
+            "cron run-now"
+        ]
+    }
+}
