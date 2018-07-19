@@ -1,6 +1,6 @@
 {
     "name": "easyengine/cron-command",
-    "description": "Manages cron in EasyEngine",
+    "description": "Manages cron jobs in EasyEngine",
     "type": "ee-cli-package",
     "homepage": "https://github.com/easyengine/cron-command",
     "license": "MIT",
