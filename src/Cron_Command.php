@@ -37,12 +37,12 @@ class Cron_Command extends EE_Command {
 	 * We also have helper to easily specify scheduling format:
 	 *
 	 *  Entry                  | Description                                | Equivalent To
-     *  -----                  | -----------                                | -------------
-     *  @yearly (or @annually) | Run once a year, midnight, Jan. 1st        | 0 0 1 1 *
-     *  @monthly               | Run once a month, midnight, first of month | 0 0 1 * *
-     *  @weekly                | Run once a week, midnight between Sat/Sun  | 0 0 * * 0
-     *  @daily (or @midnight)  | Run once a day, midnight                   | 0 0 * * *
-     *  @hourly                | Run once an hour, beginning of hour        | 0 * * * *
+	 *  -----                  | -----------                                | -------------
+	 *  @yearly (or @annually) | Run once a year, midnight, Jan. 1st        | 0 0 1 1 *
+	 *  @monthly               | Run once a month, midnight, first of month | 0 0 1 * *
+	 *  @weekly                | Run once a week, midnight between Sat/Sun  | 0 0 * * 0
+	 *  @daily (or @midnight)  | Run once a day, midnight                   | 0 0 * * *
+	 *  @hourly                | Run once an hour, beginning of hour        | 0 * * * *
 	 *
 	 * You may also schedule a job to execute at fixed intervals, starting at the time it's added or cron is run.
 	 * This is supported by following format:
@@ -53,8 +53,6 @@ class Cron_Command extends EE_Command {
 	 *    <number>h  - hour
 	 *    <number>m  - minute
 	 *    <number>s  - second
-	 *    <number>us - microseconds
-	 *    <number>ns - nanoseconds
 	 *
 	 *    So 1h10m2s is also a valid format
 	 *
@@ -106,6 +104,97 @@ class Cron_Command extends EE_Command {
 	}
 
 	/**
+	 * Updates a cron job.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <id>
+	 * : ID of cron to update.
+	 *
+	 * [--site=<site>]
+	 * : Command to schedule.
+	 *
+	 * [--command=<command>]
+	 * : Command to schedule.
+	 *
+	 * [--schedule=<schedule>]
+	 * : Time to schedule. Format is same as Linux cron.
+	 *
+	 * We also have helper to easily specify scheduling format:
+	 *
+	 *  Entry                  | Description                                | Equivalent To
+	 *  -----                  | -----------                                | -------------
+	 *  @yearly (or @annually) | Run once a year, midnight, Jan. 1st        | 0 0 1 1 *
+	 *  @monthly               | Run once a month, midnight, first of month | 0 0 1 * *
+	 *  @weekly                | Run once a week, midnight between Sat/Sun  | 0 0 * * 0
+	 *  @daily (or @midnight)  | Run once a day, midnight                   | 0 0 * * *
+	 *  @hourly                | Run once an hour, beginning of hour        | 0 * * * *
+	 *
+	 * You may also schedule a job to execute at fixed intervals, starting at the time it's added or cron is run.
+	 * This is supported by following format:
+	 *
+	 * @every <duration>
+	 *
+	 * Where duration can be combination of:
+	 *    <number>h  - hour
+	 *    <number>m  - minute
+	 *    <number>s  - second
+	 *
+	 *    So 1h10m2s is also a valid format
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     # Updates site to run cron on
+	 *     $ ee cron update 1 --site='example1.com'
+	 *
+	 *     # Updates command of cron
+	 *     $ ee cron update 1 --command='wp cron event run --due-now'
+	 *
+	 *     # Updates schedule of cron
+	 *     $ ee cron update 1 --schedule='@every 1m'
+	 *
+	 */
+	public function update( $args, $assoc_args ) {
+		EE\Utils\delem_log( 'ee cron add start' );
+
+		$data_to_update = [];
+		$site     = EE\Utils\get_flag_value( $assoc_args, 'site' );
+		$command  = EE\Utils\get_flag_value( $assoc_args, 'command' );
+		$schedule = EE\Utils\get_flag_value( $assoc_args, 'schedule' );
+
+		if( !$site && !$command && !$schedule ) {
+			EE::error( 'You should specify atleast one of - site, command or schedule to update' );
+		}
+		if($site) {
+			$data_to_update['sitename'] = $site;
+		}
+		if( $command ) {
+			// Semicolons or # in commands do not work for now due to limitation of INI style config ofelia uses
+			// See https://github.com/EasyEngine/cron-command/issues/4
+			if( strpos( $command,';' ) !== false || strpos( $command,'#' ) !== false ) {
+				EE::warning( 'Everything after ; or # will not be executed!' );
+			}
+			$data_to_update['command'] = $command;
+		}
+		if( $schedule ) {
+			if ( '@' !== substr( trim( $schedule ), 0, 1 ) ) {
+				$schedule_length = strlen( explode( ' ', trim( $schedule ) ) );
+				if ( $schedule_length <= 5 ) {
+					$schedule = '0 ' . trim( $schedule );
+				}
+			}
+			$data_to_update['schedule'] = $schedule;
+		}
+
+
+		EE::db()->update( $data_to_update, [ 'id' => $args[0] ], 'cron' );
+
+		$this->update_cron_config();
+
+		EE\Utils\delem_log( 'ee cron add end' );
+	}
+
+	/**
 	 * Lists scheduled cron jobs.
 	 *
 	 * ## OPTIONS
@@ -123,6 +212,7 @@ class Cron_Command extends EE_Command {
 	 *
 	 *     # Lists all scheduled cron jobs of a site
 	 *     $ ee cron list example.com
+	 *
 	 * @subcommand list
 	 */
 	public function _list( $args, $assoc_args ) {
@@ -201,7 +291,7 @@ class Cron_Command extends EE_Command {
 	public function run_now( $args ) {
 		$result = EE::db()->select( [ 'sitename', 'command' ], [ 'id' => $args[0] ], 'cron' );
 		if ( empty( $result ) ) {
-			EE::error( 'No such cron with id: ' . $args[0] );
+			EE::error( 'No such cron with id ' . $args[0] );
 		}
 		$container = $this->site_php_container( $result[0]['sitename'] );
 		$command   = $result[0]['command'];
@@ -225,8 +315,16 @@ class Cron_Command extends EE_Command {
 	 */
 	public function delete( $args ) {
 
-		EE::db()->delete( [ 'id' => $args[0] ], 'cron' );
+		$id = $args[0];
+
+		if( ! EE::db()->select([ 'id' ], [ 'id' => $id ], 'cron') ) {
+			EE::error( 'Unable to find cron with id ' . $id );
+		}
+
+		EE::db()->delete( [ 'id' => $id ], 'cron' );
 		$this->update_cron_config();
+
+		EE::success( 'Deleted cron with id ' . $id );
 	}
 
 
