@@ -88,6 +88,12 @@ class Cron_Command extends EE_Command {
 			}
 		}
 
+		// Semicolons or # in commands do not work for now due to limitation of INI style config ofelia uses
+		// See https://github.com/EasyEngine/cron-command/issues/4
+		if( strpos( $command,';' ) !== false || strpos( $command,'#' ) !== false ) {
+			EE::warning( 'Everything after ; or # will not be executed!' );
+		}
+
 		EE::db()->insert([
 			'sitename' => $site,
 			'command' => $command,
@@ -161,8 +167,10 @@ class Cron_Command extends EE_Command {
 		$crons           = $crons === false ? [] : $crons;
 		foreach ( $crons as &$cron ) {
 			$job_type         = $cron['sitename'] === 'host' ? 'job-local' : 'job-exec';
+			$id               = $cron['sitename'] . '-' . preg_replace( '/[^a-zA-Z0-9\@]/', '-', $cron['command'] ) . '-' . EE\Utils\random_password( 5 );
+			$id               = preg_replace('/--+/','-', $id );
 			$cron['job_type'] = $job_type;
-			$cron['id']       = $cron['sitename'] . '-' . preg_replace( '/[^a-zA-Z0-9\@]/', '_', $cron['command'] ) . '-' . EE\Utils\random_password( 5 );
+			$cron['id']       = $id;
 
 			if ( $cron['sitename'] !== 'host' ) {
 				$cron['container'] = $this->site_php_container( $cron['sitename'] );
