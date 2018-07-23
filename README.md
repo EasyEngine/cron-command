@@ -17,6 +17,9 @@ Manages cron jobs in EasyEngine
  # Adds a cron job on example.com every 10 minutes
  $ ee cron add example.com --command='wp cron event run --due-now' --schedule='@every 10m'
  
+ # Adds a cron job on example.com every 1 minutes
+ $ ee cron add example.com --command='wp cron event run --due-now' --schedule='* * * * *'
+ 
  # Adds a cron job to host running EasyEngine
  $ ee cron add host --command='wp cron event run --due-now' --schedule='@every 10m'
  
@@ -40,7 +43,7 @@ Manages cron jobs in EasyEngine
  # Updates schedule of cron
  $ ee cron update 1 --schedule='@every 1m'
  ```
-  git Also, refer to [possible schedule values](#possible-schedule-values) to know more about it.
+ Also, refer to [possible schedule values](#possible-schedule-values) to know more about it.
 
  ## list
  

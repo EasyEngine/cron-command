@@ -61,6 +61,9 @@ class Cron_Command extends EE_Command {
 	 *     # Adds a cron job on example.com every 10 minutes
 	 *     $ ee cron add example.com --command='wp cron event run --due-now' --schedule='@every 10m'
 	 *
+	 *     # Adds a cron job on example.com every 1 minutes
+	 *     $ ee cron add example.com --command='wp cron event run --due-now' --schedule='* * * * *'
+	 *
 	 *     # Adds a cron job to host running EasyEngine
 	 *     $ ee cron add host --command='wp cron event run --due-now' --schedule='@every 10m'
 	 *
