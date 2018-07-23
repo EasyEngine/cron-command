@@ -54,7 +54,7 @@ class Cron_Command extends EE_Command {
 	 *    <number>m  - minute
 	 *    <number>s  - second
 	 *
-	 *    So 1h10m2s is also a valid format
+	 *    So 1h10m2s is also a valid duration
 	 *
 	 * ## EXAMPLES
 	 *
@@ -139,7 +139,7 @@ class Cron_Command extends EE_Command {
 	 *    <number>m  - minute
 	 *    <number>s  - second
 	 *
-	 *    So 1h10m2s is also a valid format
+	 *    So 1h10m2s is also a valid duration
 	 *
 	 * ## EXAMPLES
 	 *
@@ -278,9 +278,8 @@ class Cron_Command extends EE_Command {
 	 *
 	 * ## EXAMPLES
 	 *
-	 *     # Lists all scheduled cron jobs
-	 *     $ ee cron delete 1
-	 *
+	 *     # Runs a cron job
+	 *     $ ee cron run-now 1
 	 *
 	 * @subcommand run-now
 	 */
@@ -304,9 +303,8 @@ class Cron_Command extends EE_Command {
 	 *
 	 * ## EXAMPLES
 	 *
-	 *     # Lists all scheduled cron jobs
+	 *     # Deletes a cron jobs
 	 *     $ ee cron delete 1
-	 *        TODO: Add relatable ID
 	 *
 	 */
 	public function delete( $args ) {
