@@ -13,7 +13,7 @@ class Cron_Command extends EE_Command {
 	 */
 	public function __construct() {
 		if ( 'running' !== EE_DOCKER::container_status( 'ee-cron-scheduler' ) ) {
-			$cron_scheduler_run_command = 'docker run --name ee-cron-scheduler --restart=always -d -v ' . EE_CONF_ROOT . '/cron:/etc/ofelia:ro -v /var/run/docker.sock:/var/run/docker.sock:ro easyengine/cron:v'.EE_VERSION;
+			$cron_scheduler_run_command = 'docker run --name ee-cron-scheduler --restart=always -d -v ' . EE_CONF_ROOT . '/cron:/etc/ofelia:ro -v /var/run/docker.sock:/var/run/docker.sock:ro easyengine/cron:v' . EE_VERSION;
 			if ( ! EE_DOCKER::boot_container( 'ee-cron-scheduler', $cron_scheduler_run_command ) ) {
 				EE::error( "There was some error in starting ee-cron-scheduler container. Please check logs." );
 			}
@@ -38,11 +38,11 @@ class Cron_Command extends EE_Command {
 	 *
 	 *  Entry                  | Description                                | Equivalent To
 	 *  -----                  | -----------                                | -------------
-	 *  @yearly (or @annually) | Run once a year, midnight, Jan. 1st        | 0 0 1 1 *
-	 *  @monthly               | Run once a month, midnight, first of month | 0 0 1 * *
-	 *  @weekly                | Run once a week, midnight between Sat/Sun  | 0 0 * * 0
-	 *  @daily (or @midnight)  | Run once a day, midnight                   | 0 0 * * *
-	 *  @hourly                | Run once an hour, beginning of hour        | 0 * * * *
+	 * @yearly (or @annually) | Run once a year, midnight, Jan. 1st        | 0 0 1 1 *
+	 * @monthly               | Run once a month, midnight, first of month | 0 0 1 * *
+	 * @weekly                | Run once a week, midnight between Sat/Sun  | 0 0 * * 0
+	 * @daily (or @midnight)  | Run once a day, midnight                   | 0 0 * * *
+	 * @hourly                | Run once an hour, beginning of hour        | 0 * * * *
 	 *
 	 * You may also schedule a job to execute at fixed intervals, starting at the time it's added or cron is run.
 	 * This is supported by following format:
@@ -89,11 +89,13 @@ class Cron_Command extends EE_Command {
 		$this->semi_colon_check( $command );
 		$command = $this->add_sh_c_wrapper( $command );
 
-		EE::db()->insert([
-			'sitename' => $site,
-			'command' => $command,
-			'schedule' => $schedule
-		], 'cron' );
+		EE::db()->insert(
+			[
+				'sitename' => $site,
+				'command'  => $command,
+				'schedule' => $schedule
+			], 'cron'
+		);
 
 		$this->update_cron_config();
 
@@ -121,11 +123,11 @@ class Cron_Command extends EE_Command {
 	 *
 	 *  Entry                  | Description                                | Equivalent To
 	 *  -----                  | -----------                                | -------------
-	 *  @yearly (or @annually) | Run once a year, midnight, Jan. 1st        | 0 0 1 1 *
-	 *  @monthly               | Run once a month, midnight, first of month | 0 0 1 * *
-	 *  @weekly                | Run once a week, midnight between Sat/Sun  | 0 0 * * 0
-	 *  @daily (or @midnight)  | Run once a day, midnight                   | 0 0 * * *
-	 *  @hourly                | Run once an hour, beginning of hour        | 0 * * * *
+	 * @yearly (or @annually) | Run once a year, midnight, Jan. 1st        | 0 0 1 1 *
+	 * @monthly               | Run once a month, midnight, first of month | 0 0 1 * *
+	 * @weekly                | Run once a week, midnight between Sat/Sun  | 0 0 * * 0
+	 * @daily (or @midnight)  | Run once a day, midnight                   | 0 0 * * *
+	 * @hourly                | Run once an hour, beginning of hour        | 0 * * * *
 	 *
 	 * You may also schedule a job to execute at fixed intervals, starting at the time it's added or cron is run.
 	 * This is supported by following format:
@@ -155,22 +157,22 @@ class Cron_Command extends EE_Command {
 		EE\Utils\delem_log( 'ee cron add start' );
 
 		$data_to_update = [];
-		$site     = EE\Utils\get_flag_value( $assoc_args, 'site' );
-		$command  = EE\Utils\get_flag_value( $assoc_args, 'command' );
-		$schedule = EE\Utils\get_flag_value( $assoc_args, 'schedule' );
+		$site           = EE\Utils\get_flag_value( $assoc_args, 'site' );
+		$command        = EE\Utils\get_flag_value( $assoc_args, 'command' );
+		$schedule       = EE\Utils\get_flag_value( $assoc_args, 'schedule' );
 
-		if( !$site && !$command && !$schedule ) {
+		if ( ! $site && ! $command && ! $schedule ) {
 			EE::error( 'You should specify atleast one of - site, command or schedule to update' );
 		}
-		if($site) {
+		if ( $site ) {
 			$data_to_update['sitename'] = $site;
 		}
-		if( $command ) {
+		if ( $command ) {
 			$this->semi_colon_check( $command );
-			$command = $this->add_sh_c_wrapper( $command );
+			$command                   = $this->add_sh_c_wrapper( $command );
 			$data_to_update['command'] = $command;
 		}
-		if( $schedule ) {
+		if ( $schedule ) {
 			if ( '@' !== substr( trim( $schedule ), 0, 1 ) ) {
 				$schedule_length = strlen( explode( ' ', trim( $schedule ) ) );
 				if ( $schedule_length <= 5 ) {
@@ -252,7 +254,7 @@ class Cron_Command extends EE_Command {
 		foreach ( $crons as &$cron ) {
 			$job_type         = $cron['sitename'] === 'host' ? 'job-local' : 'job-exec';
 			$id               = $cron['sitename'] . '-' . preg_replace( '/[^a-zA-Z0-9\@]/', '-', $cron['command'] ) . '-' . EE\Utils\random_password( 5 );
-			$id               = preg_replace('/--+/','-', $id );
+			$id               = preg_replace( '/--+/', '-', $id );
 			$cron['job_type'] = $job_type;
 			$cron['id']       = $id;
 
@@ -311,7 +313,7 @@ class Cron_Command extends EE_Command {
 
 		$id = $args[0];
 
-		if( ! EE::db()->select([ 'id' ], [ 'id' => $id ], 'cron') ) {
+		if ( ! EE::db()->select( [ 'id' ], [ 'id' => $id ], 'cron' ) ) {
 			EE::error( 'Unable to find cron with id ' . $id );
 		}
 
@@ -332,7 +334,7 @@ class Cron_Command extends EE_Command {
 	private function semi_colon_check( $command ) {
 		// Semicolons in commands do not work for now due to limitation of INI style config ofelia uses
 		// See https://github.com/EasyEngine/cron-command/issues/4
-		if( strpos( $command,';' ) !== false ) {
+		if ( strpos( $command, ';' ) !== false ) {
 			EE::error( 'Command chaining using `;` - semi-colon is not supported currently. You can either use `&&` or `||` or creating a second cron job for the chained command.' );
 		}
 	}
