@@ -87,6 +87,7 @@ class Cron_Command extends EE_Command {
 		}
 
 		$this->semi_colon_check( $command );
+		$command = $this->add_sh_c_wrapper( $command );
 
 		EE::db()->insert([
 			'sitename' => $site,
@@ -166,6 +167,7 @@ class Cron_Command extends EE_Command {
 		}
 		if( $command ) {
 			$this->semi_colon_check( $command );
+			$command = $this->add_sh_c_wrapper( $command );
 			$data_to_update['command'] = $command;
 		}
 		if( $schedule ) {
@@ -333,5 +335,13 @@ class Cron_Command extends EE_Command {
 		if( strpos( $command,';' ) !== false ) {
 			EE::error( 'Command chaining using `;` - semi-colon is not supported currently. You can either use `&&` or `||` or creating a second cron job for the chained command.' );
 		}
+	}
+
+	private function add_sh_c_wrapper( $command ) {
+		if ( strpos( $command, 'sh -c' ) !== false ) {
+			return $command;
+		}
+
+		return "sh -c '" . $command . "'";
 	}
 }
