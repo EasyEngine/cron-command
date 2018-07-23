@@ -86,11 +86,7 @@ class Cron_Command extends EE_Command {
 			}
 		}
 
-		// Semicolons or # in commands do not work for now due to limitation of INI style config ofelia uses
-		// See https://github.com/EasyEngine/cron-command/issues/4
-		if( strpos( $command,';' ) !== false || strpos( $command,'#' ) !== false ) {
-			EE::warning( 'Everything after ; or # will not be executed!' );
-		}
+		$this->semi_colon_check( $command );
 
 		EE::db()->insert([
 			'sitename' => $site,
@@ -169,11 +165,7 @@ class Cron_Command extends EE_Command {
 			$data_to_update['sitename'] = $site;
 		}
 		if( $command ) {
-			// Semicolons or # in commands do not work for now due to limitation of INI style config ofelia uses
-			// See https://github.com/EasyEngine/cron-command/issues/4
-			if( strpos( $command,';' ) !== false || strpos( $command,'#' ) !== false ) {
-				EE::warning( 'Everything after ; or # will not be executed!' );
-			}
+			$this->semi_colon_check( $command );
 			$data_to_update['command'] = $command;
 		}
 		if( $schedule ) {
@@ -333,5 +325,13 @@ class Cron_Command extends EE_Command {
 	 */
 	private function site_php_container( $site ) {
 		return str_replace( '.', '', $site ) . '_php_1';
+	}
+
+	private function semi_colon_check( $command ) {
+		// Semicolons in commands do not work for now due to limitation of INI style config ofelia uses
+		// See https://github.com/EasyEngine/cron-command/issues/4
+		if( strpos( $command,';' ) !== false ) {
+			EE::error( 'Command chaining using `;` - semi-colon is not supported currently. You can either use `&&` or `||` or creating a second cron job for the chained command.' );
+		}
 	}
 }
