@@ -54,12 +54,15 @@ class Cron_Command extends EE_Command {
 	 *    <number>m  - minute
 	 *    <number>s  - second
 	 *
-	 *    So 1h10m2s is also a valid format
+	 *    So 1h10m2s is also a valid duration
 	 *
 	 * ## EXAMPLES
 	 *
 	 *     # Adds a cron job on example.com every 10 minutes
 	 *     $ ee cron add example.com --command='wp cron event run --due-now' --schedule='@every 10m'
+	 *
+	 *     # Adds a cron job on example.com every 1 minutes
+	 *     $ ee cron add example.com --command='wp cron event run --due-now' --schedule='* * * * *'
 	 *
 	 *     # Adds a cron job to host running EasyEngine
 	 *     $ ee cron add host --command='wp cron event run --due-now' --schedule='@every 10m'
@@ -139,7 +142,7 @@ class Cron_Command extends EE_Command {
 	 *    <number>m  - minute
 	 *    <number>s  - second
 	 *
-	 *    So 1h10m2s is also a valid format
+	 *    So 1h10m2s is also a valid duration
 	 *
 	 * ## EXAMPLES
 	 *
@@ -278,9 +281,8 @@ class Cron_Command extends EE_Command {
 	 *
 	 * ## EXAMPLES
 	 *
-	 *     # Lists all scheduled cron jobs
-	 *     $ ee cron delete 1
-	 *
+	 *     # Runs a cron job
+	 *     $ ee cron run-now 1
 	 *
 	 * @subcommand run-now
 	 */
@@ -304,9 +306,8 @@ class Cron_Command extends EE_Command {
 	 *
 	 * ## EXAMPLES
 	 *
-	 *     # Lists all scheduled cron jobs
+	 *     # Deletes a cron jobs
 	 *     $ ee cron delete 1
-	 *        TODO: Add relatable ID
 	 *
 	 */
 	public function delete( $args ) {
