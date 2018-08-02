@@ -293,7 +293,7 @@ class Cron_Command extends EE_Command {
 		}
 		$container = $this->site_php_container( $result[0]['sitename'] );
 		$command   = $result[0]['command'];
-		\EE\Utils\default_launch( "docker exec $container $command", true, true );
+		EE::exec( "docker exec $container $command", true, true );
 	}
 
 	/**
