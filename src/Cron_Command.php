@@ -75,7 +75,7 @@ class Cron_Command extends EE_Command {
 		EE\Utils\delem_log( 'ee cron add start' );
 
 		if ( ! isset( $args[0] ) || $args[0] !== 'host' ) {
-			$args = EE\Utils\set_site_arg( $args, 'cron' );
+			$args = EE\SiteUtils\auto_site_name( $args, 'cron', __FUNCTION__ );
 		}
 
 		$site     = EE\Utils\remove_trailing_slash( $args[0] );
@@ -219,7 +219,7 @@ class Cron_Command extends EE_Command {
 		$all   = EE\Utils\get_flag_value( $assoc_args, 'all' );
 
 		if ( ( ! isset( $args[0] ) || $args[0] !== 'host' ) && ! $all ) {
-			$args = EE\Utils\set_site_arg( $args, 'cron' );
+			$args = EE\SiteUtils\auto_site_name( $args, 'cron', 'list' );
 		}
 
 		if ( isset( $args[0] ) ) {
