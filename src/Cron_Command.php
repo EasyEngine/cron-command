@@ -1,5 +1,7 @@
 <?php
 
+use EE\Model\Cron;
+
 /**
  * Manages cron on easyengine.
  *
@@ -92,13 +94,12 @@ class Cron_Command extends EE_Command {
 		$this->validate_command( $command );
 		$command = $this->add_sh_c_wrapper( $command );
 
-		EE::db()->insert(
-			[
-				'sitename' => $site,
-				'command'  => $command,
-				'schedule' => $schedule
-			], 'cron'
-		);
+		Cron::create([
+			'site_url' => $site,
+			'command'  => $command,
+			'schedule' => $schedule
+		]);
+
 
 		$this->update_cron_config();
 
@@ -163,12 +164,13 @@ class Cron_Command extends EE_Command {
 		$site           = EE\Utils\get_flag_value( $assoc_args, 'site' );
 		$command        = EE\Utils\get_flag_value( $assoc_args, 'command' );
 		$schedule       = EE\Utils\get_flag_value( $assoc_args, 'schedule' );
+		$cron_id        = $args[0];
 
 		if ( ! $site && ! $command && ! $schedule ) {
 			EE::error( 'You should specify atleast one of - site, command or schedule to update' );
 		}
 		if ( $site ) {
-			$data_to_update['sitename'] = $site;
+			$data_to_update['site_url'] = $site;
 		}
 		if ( $command ) {
 			$this->validate_command( $command );
@@ -185,8 +187,7 @@ class Cron_Command extends EE_Command {
 			$data_to_update['schedule'] = $schedule;
 		}
 
-
-		EE::db()->update( $data_to_update, [ 'id' => $args[0] ], 'cron' );
+		Cron::find( $cron_id )->update( $data_to_update );
 
 		$this->update_cron_config();
 
@@ -223,16 +224,18 @@ class Cron_Command extends EE_Command {
 		}
 
 		if ( isset( $args[0] ) ) {
-			$where = [ 'sitename' => $args[0] ];
+			$crons = Cron::where( 'site_url', $args[0] );
+		}
+		else {
+			$crons = Cron::all();
 		}
 
-		$crons = EE::db()->select( [], $where, 'cron' );
 
-		if ( false === $crons ) {
+		if ( empty( $crons ) ) {
 			EE::error( 'No cron jobs found.' );
 		}
 
-		EE\Utils\format_items( 'table', $crons, [ 'id', 'sitename', 'command', 'schedule' ] );
+		EE\Utils\format_items( 'table', $crons, [ 'id', 'site_url', 'command', 'schedule' ] );
 	}
 
 
@@ -252,17 +255,17 @@ class Cron_Command extends EE_Command {
 	 */
 	private function generate_cron_config() {
 		$config_template = file_get_contents( __DIR__ . '/../templates/config.ini.mustache' );
-		$crons           = EE::db()->select( [], [], 'cron' );
-		$crons           = $crons === false ? [] : $crons;
+		$crons           = Cron::all();
+
 		foreach ( $crons as &$cron ) {
-			$job_type         = $cron['sitename'] === 'host' ? 'job-local' : 'job-exec';
-			$id               = $cron['sitename'] . '-' . preg_replace( '/[^a-zA-Z0-9\@]/', '-', $cron['command'] ) . '-' . EE\Utils\random_password( 5 );
+			$job_type         = $cron['site_url'] === 'host' ? 'job-local' : 'job-exec';
+			$id               = $cron['site_url'] . '-' . preg_replace( '/[^a-zA-Z0-9\@]/', '-', $cron['command'] ) . '-' . EE\Utils\random_password( 5 );
 			$id               = preg_replace( '/--+/', '-', $id );
 			$cron['job_type'] = $job_type;
 			$cron['id']       = $id;
 
-			if ( $cron['sitename'] !== 'host' ) {
-				$cron['container'] = $this->site_php_container( $cron['sitename'] );
+			if ( $cron['site_url'] !== 'host' ) {
+				$cron['container'] = $this->site_php_container( $cron['site_url'] );
 			}
 		}
 
@@ -287,12 +290,14 @@ class Cron_Command extends EE_Command {
 	 * @subcommand run-now
 	 */
 	public function run_now( $args ) {
-		$result = EE::db()->select( [ 'sitename', 'command' ], [ 'id' => $args[0] ], 'cron' );
+
+		$result = Cron::find( $args[0] );
+
 		if ( empty( $result ) ) {
 			EE::error( 'No such cron with id ' . $args[0] );
 		}
-		$container = $this->site_php_container( $result[0]['sitename'] );
-		$command   = $result[0]['command'];
+		$container = $this->site_php_container( $result['site_url'] );
+		$command   = $result['command'];
 		EE::exec( "docker exec $container $command", true, true );
 	}
 
@@ -313,12 +318,13 @@ class Cron_Command extends EE_Command {
 	public function delete( $args ) {
 
 		$id = $args[0];
+		$cron = Cron::find( $id );
 
-		if ( ! EE::db()->select( [ 'id' ], [ 'id' => $id ], 'cron' ) ) {
+		if ( ! $cron ) {
 			EE::error( 'Unable to find cron with id ' . $id );
 		}
 
-		EE::db()->delete( [ 'id' => $id ], 'cron' );
+		$cron->delete();
 		$this->update_cron_config();
 
 		EE::success( 'Deleted cron with id ' . $id );
