@@ -17,7 +17,7 @@ class Cron_Command extends EE_Command {
 		if ( 'running' !== EE_DOCKER::container_status( 'ee-cron-scheduler' ) ) {
 			$cron_scheduler_run_command = 'docker run --name ee-cron-scheduler --restart=always -d -v ' . EE_CONF_ROOT . '/cron:/etc/ofelia:ro -v /var/run/docker.sock:/var/run/docker.sock:ro easyengine/cron:v' . EE_VERSION;
 			if ( ! EE_DOCKER::boot_container( 'ee-cron-scheduler', $cron_scheduler_run_command ) ) {
-				EE::error( "There was some error in starting ee-cron-scheduler container. Please check logs." );
+				EE::error( 'There was some error in starting ee-cron-scheduler container. Please check logs.' );
 			}
 		}
 	}
@@ -257,13 +257,13 @@ class Cron_Command extends EE_Command {
 		$crons           = Cron::all();
 
 		foreach ( $crons as &$cron ) {
-			$job_type         = $cron['site_url'] === 'host' ? 'job-local' : 'job-exec';
+			$job_type         = 'host' === $cron['site_url'] ? 'job-local' : 'job-exec';
 			$id               = $cron['site_url'] . '-' . preg_replace( '/[^a-zA-Z0-9\@]/', '-', $cron['command'] ) . '-' . EE\Utils\random_password( 5 );
 			$id               = preg_replace( '/--+/', '-', $id );
 			$cron['job_type'] = $job_type;
 			$cron['id']       = $id;
 
-			if ( $cron['site_url'] !== 'host' ) {
+			if ( 'host' !== $cron['site_url'] ) {
 				$cron['container'] = $this->site_php_container( $cron['site_url'] );
 			}
 		}
@@ -348,6 +348,8 @@ class Cron_Command extends EE_Command {
 	 * See https://github.com/EasyEngine/cron-command/issues/4.
 	 *
 	 * @param string $command Command whose syntax needs to be validated.
+	 *
+	 * @throws \EE\ExitException
 	 */
 	private function validate_command( $command ) {
 
