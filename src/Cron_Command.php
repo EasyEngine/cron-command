@@ -107,6 +107,86 @@ class Cron_Command extends EE_Command {
 	}
 
 	/**
+	 * Ensures given command will not create problem with INI syntax.
+	 * Semicolons and Hash(#) in commands do not work for now due to limitation of INI style config ofelia uses.
+	 * See https://github.com/EasyEngine/cron-command/issues/4.
+	 *
+	 * @param string $command Command whose syntax needs to be validated.
+	 *
+	 * @throws \EE\ExitException
+	 */
+	private function validate_command( $command ) {
+
+		if ( strpos( $command, ';' ) !== false ) {
+			EE::error( 'Command chaining using `;` - semi-colon is not supported currently. You can either use `&&` or `||` or creating a second cron job for the chained command.' );
+		}
+		if ( strpos( $command, '#' ) !== false ) {
+			EE::error( 'EasyEngine does not support commands with #' );
+		}
+	}
+
+	/**
+	 * Adds wrapper of `sh -c` to execute composite commands through docker exec properly.
+	 *
+	 * @param string $command Passed command.
+	 *
+	 * @return string Command with properly added wrapper.
+	 */
+	private function add_sh_c_wrapper( $command ) {
+		if ( strpos( $command, 'sh -c' ) !== false ) {
+			return $command;
+		}
+
+		return "sh -c '" . $command . "'";
+	}
+
+	/**
+	 * Generates cron config from DB
+	 */
+	private function update_cron_config() {
+
+		$config = $this->generate_cron_config();
+		file_put_contents( EE_CONF_ROOT . '/cron/config.ini', $config );
+		EE_DOCKER::restart_container( 'ee-cron-scheduler' );
+	}
+
+	/**
+	 * Generates and returns cron config from DB
+	 */
+	private function generate_cron_config() {
+
+		$config_template = file_get_contents( __DIR__ . '/../templates/config.ini.mustache' );
+		$crons           = Cron::all();
+
+		foreach ( $crons as &$cron ) {
+			$job_type       = 'host' === $cron->site_url ? 'job-local' : 'job-exec';
+			$id             = $cron->site_url . '-' . preg_replace( '/[^a-zA-Z0-9\@]/', '-', $cron->command ) . '-' . EE\Utils\random_password( 5 );
+			$id             = preg_replace( '/--+/', '-', $id );
+			$cron->job_type = $job_type;
+			$cron->id       = $id;
+
+			if ( 'host' !== $cron->site_url ) {
+				$cron->container = $this->site_php_container( $cron->site_url );
+			}
+		}
+
+		$me = new Mustache_Engine();
+
+		return $me->render( $config_template, $crons );
+	}
+
+	/**
+	 * Returns php container name of a site.
+	 *
+	 * @param string $site Name of the site whose container name is needed.
+	 *
+	 * @return string Container name.
+	 */
+	private function site_php_container( $site ) {
+		return str_replace( '.', '', $site ) . '_php_1';
+	}
+
+	/**
 	 * Updates a cron job.
 	 *
 	 * ## OPTIONS
@@ -237,42 +317,6 @@ class Cron_Command extends EE_Command {
 		EE\Utils\format_items( 'table', $crons, [ 'id', 'site_url', 'command', 'schedule' ] );
 	}
 
-
-	/**
-	 * Generates cron config from DB
-	 */
-	private function update_cron_config() {
-
-		$config = $this->generate_cron_config();
-		file_put_contents( EE_CONF_ROOT . '/cron/config.ini', $config );
-		EE_DOCKER::restart_container( 'ee-cron-scheduler' );
-	}
-
-	/**
-	 * Generates and returns cron config from DB
-	 */
-	private function generate_cron_config() {
-
-		$config_template = file_get_contents( __DIR__ . '/../templates/config.ini.mustache' );
-		$crons           = Cron::all();
-
-		foreach ( $crons as &$cron ) {
-			$job_type         = 'host' === $cron->site_url ? 'job-local' : 'job-exec';
-			$id               = $cron->site_url . '-' . preg_replace( '/[^a-zA-Z0-9\@]/', '-', $cron->command ) . '-' . EE\Utils\random_password( 5 );
-			$id               = preg_replace( '/--+/', '-', $id );
-			$cron->job_type   = $job_type;
-			$cron->id         = $id;
-
-			if ( 'host' !== $cron->site_url ) {
-				$cron->container = $this->site_php_container( $cron->site_url );
-			}
-		}
-
-		$me = new Mustache_Engine();
-
-		return $me->render( $config_template, $crons );
-	}
-
 	/**
 	 * Runs a cron job
 	 *
@@ -327,52 +371,5 @@ class Cron_Command extends EE_Command {
 		$this->update_cron_config();
 
 		EE::success( 'Deleted cron with id ' . $id );
-	}
-
-
-	/**
-	 * Returns php container name of a site.
-	 *
-	 * @param string $site Name of the site whose container name is needed.
-	 *
-	 * @return string Container name.
-	 */
-	private function site_php_container( $site ) {
-
-		return str_replace( '.', '', $site ) . '_php_1';
-	}
-
-	/**
-	 * Ensures given command will not create problem with INI syntax.
-	 * Semicolons and Hash(#) in commands do not work for now due to limitation of INI style config ofelia uses.
-	 * See https://github.com/EasyEngine/cron-command/issues/4.
-	 *
-	 * @param string $command Command whose syntax needs to be validated.
-	 *
-	 * @throws \EE\ExitException
-	 */
-	private function validate_command( $command ) {
-
-		if ( strpos( $command, ';' ) !== false ) {
-			EE::error( 'Command chaining using `;` - semi-colon is not supported currently. You can either use `&&` or `||` or creating a second cron job for the chained command.' );
-		}
-		if ( strpos( $command, '#' ) !== false ) {
-			EE::error( 'EasyEngine does not support commands with #' );
-		}
-	}
-
-	/**
-	 * Adds wrapper of `sh -c` to execute composite commands through docker exec properly.
-	 *
-	 * @param string $command Passed command.
-	 *
-	 * @return string Command with properly added wrapper.
-	 */
-	private function add_sh_c_wrapper( $command ) {
-		if ( strpos( $command, 'sh -c' ) !== false ) {
-			return $command;
-		}
-
-		return "sh -c '" . $command . "'";
 	}
 }
