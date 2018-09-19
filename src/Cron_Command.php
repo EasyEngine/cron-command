@@ -76,7 +76,7 @@ class Cron_Command extends EE_Command {
 
 		EE\Utils\delem_log( 'ee cron add start' );
 
-		if ( ! isset( $args[0] ) || $args[0] !== 'host' ) {
+		if ( ! isset( $args[0] ) || 'host' !== $args[0] ) {
 			$args = auto_site_name( $args, 'cron', __FUNCTION__ );
 		}
 
@@ -85,20 +85,23 @@ class Cron_Command extends EE_Command {
 		$schedule = EE\Utils\get_flag_value( $assoc_args, 'schedule' );
 
 		if ( '@' !== substr( trim( $schedule ), 0, 1 ) ) {
-			$schedule_length = strlen( explode( ' ', trim( $schedule ) ) );
-			if ( $schedule_length <= 5 ) {
-				$schedule = '0 ' . trim( $schedule );
+			$schedule_length = strlen( implode( explode( ' ', trim( $schedule ) ) ) );
+			if ( 5 !== $schedule_length ) {
+				EE::error( 'Schedule format should be same as Linux cron or schedule helper syntax(Check help for this)' );
 			}
+			$schedule = '0 ' . trim( $schedule );
 		}
 
 		$this->validate_command( $command );
 		$command = $this->add_sh_c_wrapper( $command );
 
-		Cron::create( [
-			'site_url' => $site,
-			'command'  => $command,
-			'schedule' => $schedule
-		] );
+		Cron::create(
+			[
+				'site_url' => $site,
+				'command'  => $command,
+				'schedule' => $schedule,
+			]
+		);
 
 
 		$this->update_cron_config();
@@ -259,9 +262,9 @@ class Cron_Command extends EE_Command {
 		}
 		if ( $schedule ) {
 			if ( '@' !== substr( trim( $schedule ), 0, 1 ) ) {
-				$schedule_length = strlen( explode( ' ', trim( $schedule ) ) );
-				if ( $schedule_length <= 5 ) {
-					$schedule = '0 ' . trim( $schedule );
+				$schedule_length = strlen( implode( explode( ' ', trim( $schedule ) ) ) );
+				if ( 5 !== $schedule_length ) {
+					EE::error( 'Schedule format should be same as Linux cron or schedule helper syntax(Check help for this)' );
 				}
 			}
 			$data_to_update['schedule'] = $schedule;
@@ -299,7 +302,7 @@ class Cron_Command extends EE_Command {
 
 		$all = EE\Utils\get_flag_value( $assoc_args, 'all' );
 
-		if ( ( ! isset( $args[0] ) || $args[0] !== 'host' ) && ! $all ) {
+		if ( ( ! isset( $args[0] ) || 'host' !== $args[0] ) && ! $all ) {
 			$args = auto_site_name( $args, 'cron', 'list' );
 		}
 
