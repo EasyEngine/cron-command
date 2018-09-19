@@ -4,7 +4,7 @@ use EE\Model\Cron;
 use function EE\Site\Utils\auto_site_name;
 
 /**
- * Manages cron on easyengine.
+ * Manages cron on easyengine sites and host machine.
  *
  * @package ee-cli
  */
@@ -40,11 +40,11 @@ class Cron_Command extends EE_Command {
 	 *
 	 *  Entry                  | Description                                | Equivalent To
 	 *  -----                  | -----------                                | -------------
-	 * @yearly (or @annually) | Run once a year, midnight, Jan. 1st        | 0 0 1 1 *
-	 * @monthly               | Run once a month, midnight, first of month | 0 0 1 * *
-	 * @weekly                | Run once a week, midnight between Sat/Sun  | 0 0 * * 0
-	 * @daily (or @midnight)  | Run once a day, midnight                   | 0 0 * * *
-	 * @hourly                | Run once an hour, beginning of hour        | 0 * * * *
+	 *  @yearly (or @annually) | Run once a year, midnight, Jan. 1st        | 0 0 1 1 *
+	 *  @monthly               | Run once a month, midnight, first of month | 0 0 1 * *
+	 *  @weekly                | Run once a week, midnight between Sat/Sun  | 0 0 * * 0
+	 *  @daily (or @midnight)  | Run once a day, midnight                   | 0 0 * * *
+	 *  @hourly                | Run once an hour, beginning of hour        | 0 * * * *
 	 *
 	 * You may also schedule a job to execute at fixed intervals, starting at the time it's added or cron is run.
 	 * This is supported by following format:
@@ -61,18 +61,18 @@ class Cron_Command extends EE_Command {
 	 * ## EXAMPLES
 	 *
 	 *     # Adds a cron job on example.com every 10 minutes
-	 *     $ ee cron add example.com --command='wp cron event run --due-now' --schedule='@every 10m'
+	 *     $ ee cron create example.com --command='wp cron event run --due-now' --schedule='@every 10m'
 	 *
 	 *     # Adds a cron job on example.com every 1 minutes
-	 *     $ ee cron add example.com --command='wp cron event run --due-now' --schedule='* * * * *'
+	 *     $ ee cron create example.com --command='wp cron event run --due-now' --schedule='* * * * *'
 	 *
 	 *     # Adds a cron job to host running EasyEngine
-	 *     $ ee cron add host --command='wp cron event run --due-now' --schedule='@every 10m'
+	 *     $ ee cron create host --command='wp cron event run --due-now' --schedule='@every 10m'
 	 *
 	 *     # Adds a cron job to host running EasyEngine
-	 *     $ ee cron add host --command='wp media regenerate --yes' --schedule='@weekly'
+	 *     $ ee cron create host --command='wp media regenerate --yes' --schedule='@weekly'
 	 */
-	public function add( $args, $assoc_args ) {
+	public function create( $args, $assoc_args ) {
 
 		EE\Utils\delem_log( 'ee cron add start' );
 
@@ -127,11 +127,11 @@ class Cron_Command extends EE_Command {
 	 *
 	 *  Entry                  | Description                                | Equivalent To
 	 *  -----                  | -----------                                | -------------
-	 * @yearly (or @annually) | Run once a year, midnight, Jan. 1st        | 0 0 1 1 *
-	 * @monthly               | Run once a month, midnight, first of month | 0 0 1 * *
-	 * @weekly                | Run once a week, midnight between Sat/Sun  | 0 0 * * 0
-	 * @daily (or @midnight)  | Run once a day, midnight                   | 0 0 * * *
-	 * @hourly                | Run once an hour, beginning of hour        | 0 * * * *
+	 *  @yearly (or @annually) | Run once a year, midnight, Jan. 1st        | 0 0 1 1 *
+	 *  @monthly               | Run once a month, midnight, first of month | 0 0 1 * *
+	 *  @weekly                | Run once a week, midnight between Sat/Sun  | 0 0 * * 0
+	 *  @daily (or @midnight)  | Run once a day, midnight                   | 0 0 * * *
+	 *  @hourly                | Run once an hour, beginning of hour        | 0 * * * *
 	 *
 	 * You may also schedule a job to execute at fixed intervals, starting at the time it's added or cron is run.
 	 * This is supported by following format:
