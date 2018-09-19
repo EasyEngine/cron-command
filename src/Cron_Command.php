@@ -49,7 +49,7 @@ class Cron_Command extends EE_Command {
 	 * You may also schedule a job to execute at fixed intervals, starting at the time it's added or cron is run.
 	 * This is supported by following format:
 	 *
-	 * @every <duration>
+	 *  @every <duration>
 	 *
 	 * Where duration can be combination of:
 	 *    <number>h  - hour
@@ -257,14 +257,14 @@ class Cron_Command extends EE_Command {
 		$crons           = Cron::all();
 
 		foreach ( $crons as &$cron ) {
-			$job_type         = 'host' === $cron['site_url'] ? 'job-local' : 'job-exec';
-			$id               = $cron['site_url'] . '-' . preg_replace( '/[^a-zA-Z0-9\@]/', '-', $cron['command'] ) . '-' . EE\Utils\random_password( 5 );
+			$job_type         = 'host' === $cron->site_url ? 'job-local' : 'job-exec';
+			$id               = $cron->site_url . '-' . preg_replace( '/[^a-zA-Z0-9\@]/', '-', $cron->command ) . '-' . EE\Utils\random_password( 5 );
 			$id               = preg_replace( '/--+/', '-', $id );
-			$cron['job_type'] = $job_type;
-			$cron['id']       = $id;
+			$cron->job_type   = $job_type;
+			$cron->id         = $id;
 
-			if ( 'host' !== $cron['site_url'] ) {
-				$cron['container'] = $this->site_php_container( $cron['site_url'] );
+			if ( 'host' !== $cron->site_url ) {
+				$cron->container = $this->site_php_container( $cron->site_url );
 			}
 		}
 
@@ -295,8 +295,8 @@ class Cron_Command extends EE_Command {
 		if ( empty( $result ) ) {
 			EE::error( 'No such cron with id ' . $args[0] );
 		}
-		$container = $this->site_php_container( $result['site_url'] );
-		$command   = $result['command'];
+		$container = $this->site_php_container( $result->site_url );
+		$command   = $result->command;
 		EE::exec( "docker exec $container $command", true, true );
 	}
 
