@@ -342,8 +342,14 @@ class Cron_Command extends EE_Command {
 		if ( empty( $result ) ) {
 			EE::error( 'No such cron with id ' . $args[0] );
 		}
+
 		$container = $this->site_php_container( $result->site_url );
 		$command   = $result->command;
+
+		if ( 'host' === $result->site_url ) {
+			EE::exec( $command, true, true );
+		}
+
 		EE::exec( "docker exec $container $command", true, true );
 	}
 
