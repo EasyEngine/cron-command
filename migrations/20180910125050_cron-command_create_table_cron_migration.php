@@ -28,11 +28,11 @@ class CreateTableCronMigration extends Base {
 
 		$query = 'CREATE TABLE cron (
 			id INTEGER,
-			site_url VARCHAR,
-			command VARCHAR,
-			schedule VARCHAR,
-			PRIMARY KEY (id),
-			FOREIGN KEY (site_url) REFERENCES sites(site_url)
+			site_url VARCHAR NOT NULL,
+			user VARCHAR NOT NULL,
+			command VARCHAR NOT NULL,
+			schedule VARCHAR NOT NULL,
+			PRIMARY KEY (id)
 		);';
 
 		try {
