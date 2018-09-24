@@ -219,7 +219,7 @@ class Cron_Command extends EE_Command {
 	 * You may also schedule a job to execute at fixed intervals, starting at the time it's added or cron is run.
 	 * This is supported by following format:
 	 *
-	 *  @every <duration>
+	 * - @every <duration>
 	 *
 	 * Where duration can be combination of:
 	 *    <number>h  - hour
