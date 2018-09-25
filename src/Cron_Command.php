@@ -36,6 +36,9 @@ class Cron_Command extends EE_Command {
 	 * --schedule=<schedule>
 	 * : Time to schedule. Format is same as Linux cron.
 	 *
+	 * [--user=<user>]
+	 * : User to execute command as.
+	 *
 	 * We also have helper to easily specify scheduling format:
 	 *
 	 * | Entry                  | Description                                | Equivalent To
@@ -66,6 +69,9 @@ class Cron_Command extends EE_Command {
 	 *     # Adds a cron job on example.com every 1 minutes
 	 *     $ ee cron create example.com --command='wp cron event run --due-now' --schedule='* * * * *'
 	 *
+	 *     # Adds a cron job on example.com every 1 minutes run as user www-data
+	 *     $ ee cron create example.com --command='wp cron event run --due-now' --schedule='* * * * *' --user=www-data
+	 *
 	 *     # Adds a cron job to host running EasyEngine
 	 *     $ ee cron create host --command='wp cron event run --due-now' --schedule='@every 10m'
 	 *
@@ -83,6 +89,7 @@ class Cron_Command extends EE_Command {
 		$site     = EE\Utils\remove_trailing_slash( $args[0] );
 		$command  = EE\Utils\get_flag_value( $assoc_args, 'command' );
 		$schedule = EE\Utils\get_flag_value( $assoc_args, 'schedule' );
+		$user     = EE\Utils\get_flag_value( $assoc_args, 'user' );
 
 		if ( '@' !== substr( trim( $schedule ), 0, 1 ) ) {
 			$schedule_length = count( array_filter( explode( ' ', $schedule ), 'trim' ) );
@@ -95,14 +102,17 @@ class Cron_Command extends EE_Command {
 		$this->validate_command( $command );
 		$command = $this->add_sh_c_wrapper( $command );
 
-		Cron::create(
-			[
-				'site_url' => $site,
-				'command'  => $command,
-				'schedule' => $schedule,
-			]
-		);
+		$cron_data = [
+			'site_url' => $site,
+			'command'  => $command,
+			'schedule' => $schedule,
+		];
 
+		if ( $user ) {
+			$cron_data['user'] = $user;
+		}
+
+		Cron::create( $cron_data );
 
 		$this->update_cron_config();
 
@@ -206,6 +216,9 @@ class Cron_Command extends EE_Command {
 	 * [--schedule=<schedule>]
 	 * : Time to schedule. Format is same as Linux cron.
 	 *
+	 * [--user=<user>]
+	 * : User to execute command as.
+	 *
 	 * We also have helper to easily specify scheduling format:
 	 *
 	 * | Entry                   | Description                                | Equivalent To
@@ -236,6 +249,9 @@ class Cron_Command extends EE_Command {
 	 *     # Updates command of cron
 	 *     $ ee cron update 1 --command='wp cron event run --due-now'
 	 *
+	 *     # Updates command and user of cron
+	 *     $ ee cron update 1 --command='wp cron event run --due-now' --user=root
+	 *
 	 *     # Updates schedule of cron
 	 *     $ ee cron update 1 --schedule='@every 1m'
 	 */
@@ -247,13 +263,17 @@ class Cron_Command extends EE_Command {
 		$site           = EE\Utils\get_flag_value( $assoc_args, 'site' );
 		$command        = EE\Utils\get_flag_value( $assoc_args, 'command' );
 		$schedule       = EE\Utils\get_flag_value( $assoc_args, 'schedule' );
+		$user           = EE\Utils\get_flag_value( $assoc_args, 'user' );
 		$cron_id        = $args[0];
 
-		if ( ! $site && ! $command && ! $schedule ) {
-			EE::error( 'You should specify atleast one of - site, command or schedule to update' );
+		if ( ! $site && ! $command && ! $schedule && ! $user ) {
+			EE::error( 'You should specify at least one of - site, command, schedule or user to update' );
 		}
 		if ( $site ) {
 			$data_to_update['site_url'] = $site;
+		}
+		if ( $user ) {
+			$data_to_update['user'] = $user;
 		}
 		if ( $command ) {
 			$this->validate_command( $command );
@@ -345,13 +365,14 @@ class Cron_Command extends EE_Command {
 
 		$container = $this->site_php_container( $cron->site_url );
 		$command   = $cron->command;
+		$user      = empty( $cron->user ) ? 'root' : $cron->user;
 
 		if ( 'host' === $cron->site_url ) {
 			EE::exec( $command, true, true );
 			return;
 		}
 
-		EE::exec( "docker exec $container $command", true, true );
+		EE::exec( "docker exec --user=$user $container $command", true, true );
 	}
 
 	/**
