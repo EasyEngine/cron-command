@@ -52,7 +52,7 @@ class Cron_Command extends EE_Command {
 	 * You may also schedule a job to execute at fixed intervals, starting at the time it's added or cron is run.
 	 * This is supported by following format:
 	 *
-	 *  @every <duration>
+	 * - @every <duration>
 	 *
 	 * Where duration can be combination of:
 	 *    <number>h  - hour
@@ -92,7 +92,7 @@ class Cron_Command extends EE_Command {
 		$user     = EE\Utils\get_flag_value( $assoc_args, 'user' );
 
 		if ( '@' !== substr( trim( $schedule ), 0, 1 ) ) {
-			$schedule_length = strlen( implode( explode( ' ', trim( $schedule ) ) ) );
+			$schedule_length = count( array_filter( explode( ' ', $schedule ), 'trim' ) );
 			if ( 5 !== $schedule_length ) {
 				EE::error( 'Schedule format should be same as Linux cron or schedule helper syntax(Check help for this)' );
 			}
@@ -232,7 +232,7 @@ class Cron_Command extends EE_Command {
 	 * You may also schedule a job to execute at fixed intervals, starting at the time it's added or cron is run.
 	 * This is supported by following format:
 	 *
-	 *  @every <duration>
+	 * - @every <duration>
 	 *
 	 * Where duration can be combination of:
 	 *    <number>h  - hour
@@ -357,18 +357,19 @@ class Cron_Command extends EE_Command {
 	 */
 	public function run_now( $args ) {
 
-		$result = Cron::find( $args[0] );
+		$cron = Cron::find( $args[0] );
 
-		if ( empty( $result ) ) {
+		if ( empty( $cron ) ) {
 			EE::error( 'No such cron with id ' . $args[0] );
 		}
 
-		$container = $this->site_php_container( $result->site_url );
-		$command   = $result->command;
-		$user      = empty( $result->user ) ? 'root' : $result->user;
+		$container = $this->site_php_container( $cron->site_url );
+		$command   = $cron->command;
+		$user      = empty( $cron->user ) ? 'root' : $cron->user;
 
-		if ( 'host' === $result->site_url ) {
+		if ( 'host' === $cron->site_url ) {
 			EE::exec( $command, true, true );
+			return;
 		}
 
 		EE::exec( "docker exec --user=$user $container $command", true, true );
