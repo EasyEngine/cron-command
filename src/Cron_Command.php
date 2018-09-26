@@ -36,20 +36,23 @@ class Cron_Command extends EE_Command {
 	 * --schedule=<schedule>
 	 * : Time to schedule. Format is same as Linux cron.
 	 *
+	 * [--user=<user>]
+	 * : User to execute command as.
+	 *
 	 * We also have helper to easily specify scheduling format:
 	 *
-	 *  Entry                  | Description                                | Equivalent To
-	 *  -----                  | -----------                                | -------------
-	 *  @yearly (or @annually) | Run once a year, midnight, Jan. 1st        | 0 0 1 1 *
-	 *  @monthly               | Run once a month, midnight, first of month | 0 0 1 * *
-	 *  @weekly                | Run once a week, midnight between Sat/Sun  | 0 0 * * 0
-	 *  @daily (or @midnight)  | Run once a day, midnight                   | 0 0 * * *
-	 *  @hourly                | Run once an hour, beginning of hour        | 0 * * * *
+	 * | Entry                  | Description                                | Equivalent To
+	 * | -----                  | -----------                                | -------------
+	 * | @yearly (or @annually) | Run once a year, midnight, Jan. 1st        | 0 0 1 1 *
+	 * | @monthly               | Run once a month, midnight, first of month | 0 0 1 * *
+	 * | @weekly                | Run once a week, midnight between Sat/Sun  | 0 0 * * 0
+	 * | @daily (or @midnight)  | Run once a day, midnight                   | 0 0 * * *
+	 * | @hourly                | Run once an hour, beginning of hour        | 0 * * * *
 	 *
 	 * You may also schedule a job to execute at fixed intervals, starting at the time it's added or cron is run.
 	 * This is supported by following format:
 	 *
-	 * @every <duration>
+	 * - @every <duration>
 	 *
 	 * Where duration can be combination of:
 	 *    <number>h  - hour
@@ -66,6 +69,9 @@ class Cron_Command extends EE_Command {
 	 *     # Adds a cron job on example.com every 1 minutes
 	 *     $ ee cron create example.com --command='wp cron event run --due-now' --schedule='* * * * *'
 	 *
+	 *     # Adds a cron job on example.com every 1 minutes run as user www-data
+	 *     $ ee cron create example.com --command='wp cron event run --due-now' --schedule='* * * * *' --user=www-data
+	 *
 	 *     # Adds a cron job to host running EasyEngine
 	 *     $ ee cron create host --command='wp cron event run --due-now' --schedule='@every 10m'
 	 *
@@ -76,34 +82,121 @@ class Cron_Command extends EE_Command {
 
 		EE\Utils\delem_log( 'ee cron add start' );
 
-		if ( ! isset( $args[0] ) || $args[0] !== 'host' ) {
+		if ( ! isset( $args[0] ) || 'host' !== $args[0] ) {
 			$args = auto_site_name( $args, 'cron', __FUNCTION__ );
 		}
 
 		$site     = EE\Utils\remove_trailing_slash( $args[0] );
 		$command  = EE\Utils\get_flag_value( $assoc_args, 'command' );
 		$schedule = EE\Utils\get_flag_value( $assoc_args, 'schedule' );
+		$user     = EE\Utils\get_flag_value( $assoc_args, 'user' );
 
 		if ( '@' !== substr( trim( $schedule ), 0, 1 ) ) {
-			$schedule_length = strlen( explode( ' ', trim( $schedule ) ) );
-			if ( $schedule_length <= 5 ) {
-				$schedule = '0 ' . trim( $schedule );
+			$schedule_length = count( array_filter( explode( ' ', $schedule ), 'trim' ) );
+			if ( 5 !== $schedule_length ) {
+				EE::error( 'Schedule format should be same as Linux cron or schedule helper syntax(Check help for this)' );
 			}
+			$schedule = '0 ' . trim( $schedule );
 		}
 
 		$this->validate_command( $command );
 		$command = $this->add_sh_c_wrapper( $command );
 
-		Cron::create( [
+		$cron_data = [
 			'site_url' => $site,
 			'command'  => $command,
-			'schedule' => $schedule
-		] );
+			'schedule' => $schedule,
+		];
 
+		if ( $user ) {
+			$cron_data['user'] = $user;
+		}
+
+		Cron::create( $cron_data );
 
 		$this->update_cron_config();
 
 		EE\Utils\delem_log( 'ee cron add end' );
+	}
+
+	/**
+	 * Ensures given command will not create problem with INI syntax.
+	 * Semicolons and Hash(#) in commands do not work for now due to limitation of INI style config ofelia uses.
+	 * See https://github.com/EasyEngine/cron-command/issues/4.
+	 *
+	 * @param string $command Command whose syntax needs to be validated.
+	 *
+	 * @throws \EE\ExitException
+	 */
+	private function validate_command( $command ) {
+
+		if ( strpos( $command, ';' ) !== false ) {
+			EE::error( 'Command chaining using `;` - semi-colon is not supported currently. You can either use `&&` or `||` or creating a second cron job for the chained command.' );
+		}
+		if ( strpos( $command, '#' ) !== false ) {
+			EE::error( 'EasyEngine does not support commands with #' );
+		}
+	}
+
+	/**
+	 * Adds wrapper of `sh -c` to execute composite commands through docker exec properly.
+	 *
+	 * @param string $command Passed command.
+	 *
+	 * @return string Command with properly added wrapper.
+	 */
+	private function add_sh_c_wrapper( $command ) {
+		if ( strpos( $command, 'sh -c' ) !== false ) {
+			return $command;
+		}
+
+		return "sh -c '" . $command . "'";
+	}
+
+	/**
+	 * Generates cron config from DB
+	 */
+	private function update_cron_config() {
+
+		$config = $this->generate_cron_config();
+		file_put_contents( EE_ROOT_DIR . '/services/cron/config.ini', $config );
+		EE_DOCKER::restart_container( 'ee-cron-scheduler' );
+	}
+
+	/**
+	 * Generates and returns cron config from DB
+	 */
+	private function generate_cron_config() {
+
+		$config_template = file_get_contents( __DIR__ . '/../templates/config.ini.mustache' );
+		$crons           = Cron::all();
+
+		foreach ( $crons as &$cron ) {
+			$job_type       = 'host' === $cron->site_url ? 'job-local' : 'job-exec';
+			$id             = $cron->site_url . '-' . preg_replace( '/[^a-zA-Z0-9\@]/', '-', $cron->command ) . '-' . EE\Utils\random_password( 5 );
+			$id             = preg_replace( '/--+/', '-', $id );
+			$cron->job_type = $job_type;
+			$cron->id       = $id;
+
+			if ( 'host' !== $cron->site_url ) {
+				$cron->container = $this->site_php_container( $cron->site_url );
+			}
+		}
+
+		$me = new Mustache_Engine();
+
+		return $me->render( $config_template, $crons );
+	}
+
+	/**
+	 * Returns php container name of a site.
+	 *
+	 * @param string $site Name of the site whose container name is needed.
+	 *
+	 * @return string Container name.
+	 */
+	private function site_php_container( $site ) {
+		return str_replace( '.', '', $site ) . '_php_1';
 	}
 
 	/**
@@ -123,20 +216,23 @@ class Cron_Command extends EE_Command {
 	 * [--schedule=<schedule>]
 	 * : Time to schedule. Format is same as Linux cron.
 	 *
+	 * [--user=<user>]
+	 * : User to execute command as.
+	 *
 	 * We also have helper to easily specify scheduling format:
 	 *
-	 *  Entry                  | Description                                | Equivalent To
-	 *  -----                  | -----------                                | -------------
-	 *  @yearly (or @annually) | Run once a year, midnight, Jan. 1st        | 0 0 1 1 *
-	 *  @monthly               | Run once a month, midnight, first of month | 0 0 1 * *
-	 *  @weekly                | Run once a week, midnight between Sat/Sun  | 0 0 * * 0
-	 *  @daily (or @midnight)  | Run once a day, midnight                   | 0 0 * * *
-	 *  @hourly                | Run once an hour, beginning of hour        | 0 * * * *
+	 * | Entry                   | Description                                | Equivalent To
+	 * | -----                   | -----------                                | -------------
+	 * | @yearly (or @annually)  | Run once a year, midnight, Jan. 1st        | 0 0 1 1 *
+	 * | @monthly                | Run once a month, midnight, first of month | 0 0 1 * *
+	 * | @weekly                 | Run once a week, midnight between Sat/Sun  | 0 0 * * 0
+	 * | @daily (or @midnight)   | Run once a day, midnight                   | 0 0 * * *
+	 * | @hourly                 | Run once an hour, beginning of hour        | 0 * * * *
 	 *
 	 * You may also schedule a job to execute at fixed intervals, starting at the time it's added or cron is run.
 	 * This is supported by following format:
 	 *
-	 * @every <duration>
+	 * - @every <duration>
 	 *
 	 * Where duration can be combination of:
 	 *    <number>h  - hour
@@ -153,6 +249,9 @@ class Cron_Command extends EE_Command {
 	 *     # Updates command of cron
 	 *     $ ee cron update 1 --command='wp cron event run --due-now'
 	 *
+	 *     # Updates command and user of cron
+	 *     $ ee cron update 1 --command='wp cron event run --due-now' --user=root
+	 *
 	 *     # Updates schedule of cron
 	 *     $ ee cron update 1 --schedule='@every 1m'
 	 */
@@ -164,13 +263,17 @@ class Cron_Command extends EE_Command {
 		$site           = EE\Utils\get_flag_value( $assoc_args, 'site' );
 		$command        = EE\Utils\get_flag_value( $assoc_args, 'command' );
 		$schedule       = EE\Utils\get_flag_value( $assoc_args, 'schedule' );
+		$user           = EE\Utils\get_flag_value( $assoc_args, 'user' );
 		$cron_id        = $args[0];
 
-		if ( ! $site && ! $command && ! $schedule ) {
-			EE::error( 'You should specify atleast one of - site, command or schedule to update' );
+		if ( ! $site && ! $command && ! $schedule && ! $user ) {
+			EE::error( 'You should specify at least one of - site, command, schedule or user to update' );
 		}
 		if ( $site ) {
 			$data_to_update['site_url'] = $site;
+		}
+		if ( $user ) {
+			$data_to_update['user'] = $user;
 		}
 		if ( $command ) {
 			$this->validate_command( $command );
@@ -179,9 +282,9 @@ class Cron_Command extends EE_Command {
 		}
 		if ( $schedule ) {
 			if ( '@' !== substr( trim( $schedule ), 0, 1 ) ) {
-				$schedule_length = strlen( explode( ' ', trim( $schedule ) ) );
-				if ( $schedule_length <= 5 ) {
-					$schedule = '0 ' . trim( $schedule );
+				$schedule_length = strlen( implode( explode( ' ', trim( $schedule ) ) ) );
+				if ( 5 !== $schedule_length ) {
+					EE::error( 'Schedule format should be same as Linux cron or schedule helper syntax(Check help for this)' );
 				}
 			}
 			$data_to_update['schedule'] = $schedule;
@@ -219,7 +322,7 @@ class Cron_Command extends EE_Command {
 
 		$all = EE\Utils\get_flag_value( $assoc_args, 'all' );
 
-		if ( ( ! isset( $args[0] ) || $args[0] !== 'host' ) && ! $all ) {
+		if ( ( ! isset( $args[0] ) || 'host' !== $args[0] ) && ! $all ) {
 			$args = auto_site_name( $args, 'cron', 'list' );
 		}
 
@@ -236,43 +339,7 @@ class Cron_Command extends EE_Command {
 
 		EE\Utils\format_items( 'table', $crons, [ 'id', 'site_url', 'command', 'schedule' ] );
 	}
-
-
-	/**
-	 * Generates cron config from DB
-	 */
-	private function update_cron_config() {
-
-		$config = $this->generate_cron_config();
-		file_put_contents( EE_ROOT_DIR . '/services/cron/config.ini', $config );
-		EE_DOCKER::restart_container( 'ee-cron-scheduler' );
-	}
-
-	/**
-	 * Generates and returns cron config from DB
-	 */
-	private function generate_cron_config() {
-
-		$config_template = file_get_contents( __DIR__ . '/../templates/config.ini.mustache' );
-		$crons           = Cron::all();
-
-		foreach ( $crons as &$cron ) {
-			$job_type         = 'host' === $cron['site_url'] ? 'job-local' : 'job-exec';
-			$id               = $cron['site_url'] . '-' . preg_replace( '/[^a-zA-Z0-9\@]/', '-', $cron['command'] ) . '-' . EE\Utils\random_password( 5 );
-			$id               = preg_replace( '/--+/', '-', $id );
-			$cron['job_type'] = $job_type;
-			$cron['id']       = $id;
-
-			if ( 'host' !== $cron['site_url'] ) {
-				$cron['container'] = $this->site_php_container( $cron['site_url'] );
-			}
-		}
-
-		$me = new Mustache_Engine();
-
-		return $me->render( $config_template, $crons );
-	}
-
+	
 	/**
 	 * Runs a cron job
 	 *
@@ -290,14 +357,22 @@ class Cron_Command extends EE_Command {
 	 */
 	public function run_now( $args ) {
 
-		$result = Cron::find( $args[0] );
+		$cron = Cron::find( $args[0] );
 
-		if ( empty( $result ) ) {
+		if ( empty( $cron ) ) {
 			EE::error( 'No such cron with id ' . $args[0] );
 		}
-		$container = $this->site_php_container( $result['site_url'] );
-		$command   = $result['command'];
-		EE::exec( "docker exec $container $command", true, true );
+
+		$container = $this->site_php_container( $cron->site_url );
+		$command   = $cron->command;
+		$user      = empty( $cron->user ) ? 'root' : $cron->user;
+
+		if ( 'host' === $cron->site_url ) {
+			EE::exec( $command, true, true );
+			return;
+		}
+
+		EE::exec( "docker exec --user=$user $container $command", true, true );
 	}
 
 	/**
@@ -327,52 +402,5 @@ class Cron_Command extends EE_Command {
 		$this->update_cron_config();
 
 		EE::success( 'Deleted cron with id ' . $id );
-	}
-
-
-	/**
-	 * Returns php container name of a site.
-	 *
-	 * @param string $site Name of the site whose container name is needed.
-	 *
-	 * @return string Container name.
-	 */
-	private function site_php_container( $site ) {
-
-		return str_replace( '.', '', $site ) . '_php_1';
-	}
-
-	/**
-	 * Ensures given command will not create problem with INI syntax.
-	 * Semicolons and Hash(#) in commands do not work for now due to limitation of INI style config ofelia uses.
-	 * See https://github.com/EasyEngine/cron-command/issues/4.
-	 *
-	 * @param string $command Command whose syntax needs to be validated.
-	 *
-	 * @throws \EE\ExitException
-	 */
-	private function validate_command( $command ) {
-
-		if ( strpos( $command, ';' ) !== false ) {
-			EE::error( 'Command chaining using `;` - semi-colon is not supported currently. You can either use `&&` or `||` or creating a second cron job for the chained command.' );
-		}
-		if ( strpos( $command, '#' ) !== false ) {
-			EE::error( 'EasyEngine does not support commands with #' );
-		}
-	}
-
-	/**
-	 * Adds wrapper of `sh -c` to execute composite commands through docker exec properly.
-	 *
-	 * @param string $command Passed command.
-	 *
-	 * @return string Command with properly added wrapper.
-	 */
-	private function add_sh_c_wrapper( $command ) {
-		if ( strpos( $command, 'sh -c' ) !== false ) {
-			return $command;
-		}
-
-		return "sh -c '" . $command . "'";
 	}
 }
