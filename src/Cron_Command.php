@@ -339,7 +339,7 @@ class Cron_Command extends EE_Command {
 
 		EE\Utils\format_items( 'table', $crons, [ 'id', 'site_url', 'command', 'schedule' ] );
 	}
-	
+
 	/**
 	 * Runs a cron job
 	 *
