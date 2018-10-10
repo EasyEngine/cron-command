@@ -1,3 +1,4 @@
+
 <?php
 
 use EE\Model\Cron;
@@ -10,16 +11,13 @@ use function EE\Site\Utils\auto_site_name;
  */
 class Cron_Command extends EE_Command {
 
+	CONST EE_CRON_SCHEDULER = 'ee-cron-scheduler';
+
 	/**
 	 * Runs cron container if it's not running
 	 */
 	public function __construct() {
-		if ( 'running' !== EE_DOCKER::container_status( 'ee-cron-scheduler' ) ) {
-			$cron_scheduler_run_command = 'docker run --name ee-cron-scheduler --restart=always -d -v ' . EE_ROOT_DIR . '/services/cron:/etc/ofelia:ro -v /var/run/docker.sock:/var/run/docker.sock:ro easyengine/cron:v' . EE_VERSION;
-			if ( ! EE_DOCKER::boot_container( 'ee-cron-scheduler', $cron_scheduler_run_command ) ) {
-				EE::error( 'There was some error in starting ee-cron-scheduler container. Please check logs.' );
-			}
-		}
+
 	}
 
 	/**
@@ -79,6 +77,13 @@ class Cron_Command extends EE_Command {
 	 *     $ ee cron create host --command='wp media regenerate --yes' --schedule='@weekly'
 	 */
 	public function create( $args, $assoc_args ) {
+
+		if ( 'running' !== EE_DOCKER::container_status( self::EE_CRON_SCHEDULER ) ) {
+			$cron_scheduler_run_command = 'docker run --name ee-cron-scheduler --restart=always -d -v ' . EE_ROOT_DIR . '/services/cron:/etc/ofelia:ro -v /var/run/docker.sock:/var/run/docker.sock:ro easyengine/cron:v' . EE_VERSION;
+			if ( ! EE_DOCKER::boot_container( self::EE_CRON_SCHEDULER, $cron_scheduler_run_command ) ) {
+				EE::error( 'There was some error in starting ee-cron-scheduler container. Please check logs.' );
+			}
+		}
 
 		EE\Utils\delem_log( 'ee cron add start' );
 
@@ -160,7 +165,7 @@ class Cron_Command extends EE_Command {
 
 		$config = $this->generate_cron_config();
 		file_put_contents( EE_ROOT_DIR . '/services/cron/config.ini', $config );
-		EE_DOCKER::restart_container( 'ee-cron-scheduler' );
+		EE_DOCKER::restart_container( self::EE_CRON_SCHEDULER );
 	}
 
 	/**
@@ -402,5 +407,10 @@ class Cron_Command extends EE_Command {
 		$this->update_cron_config();
 
 		EE::success( 'Deleted cron with id ' . $id );
+
+		$cron_entries = EE::db()->table( 'cron' )->all();
+		if ( empty( $cron_entries ) ) {
+			EE::exec( 'docker rm -f ' . self::EE_CRON_SCHEDULER );
+		}
 	}
 }
