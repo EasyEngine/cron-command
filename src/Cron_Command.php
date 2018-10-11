@@ -77,7 +77,7 @@ class Cron_Command extends EE_Command {
 	public function create( $args, $assoc_args ) {
 
 		if ( 'running' !== EE_DOCKER::container_status( EE_CRON_SCHEDULER ) ) {
-			$cron_scheduler_run_command = 'docker run --name ' . EE_CRON_SCHEDULER . '--restart=always -d -v ' . EE_ROOT_DIR . '/services/cron:/etc/ofelia:ro -v /var/run/docker.sock:/var/run/docker.sock:ro easyengine/cron:v' . EE_VERSION;
+			$cron_scheduler_run_command = 'docker run --name ' . EE_CRON_SCHEDULER . ' --restart=always -d -v ' . EE_ROOT_DIR . '/services/cron:/etc/ofelia:ro -v /var/run/docker.sock:/var/run/docker.sock:ro easyengine/cron:v' . EE_VERSION;
 			if ( ! EE_DOCKER::boot_container( EE_CRON_SCHEDULER, $cron_scheduler_run_command ) ) {
 				EE::error( 'There was some error in starting ' . EE_CRON_SCHEDULER . ' container. Please check logs.' );
 			}
