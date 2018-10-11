@@ -4,6 +4,10 @@ if ( ! class_exists( 'EE' ) ) {
 	return;
 }
 
+if ( ! defined( 'EE_CRON_SCHEDULER' ) ) {
+	define( 'EE_CRON_SCHEDULER', 'ee-cron-scheduler' );
+}
+
 $autoload = dirname( __FILE__ ) . '/vendor/autoload.php';
 if ( file_exists( $autoload ) ) {
 	require_once $autoload;

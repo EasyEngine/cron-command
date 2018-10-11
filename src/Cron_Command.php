@@ -1,3 +1,4 @@
+
 <?php
 
 use EE\Model\Cron;
@@ -14,12 +15,7 @@ class Cron_Command extends EE_Command {
 	 * Runs cron container if it's not running
 	 */
 	public function __construct() {
-		if ( 'running' !== EE_DOCKER::container_status( 'ee-cron-scheduler' ) ) {
-			$cron_scheduler_run_command = 'docker run --name ee-cron-scheduler --restart=always -d -v ' . EE_ROOT_DIR . '/services/cron:/etc/ofelia:ro -v /var/run/docker.sock:/var/run/docker.sock:ro easyengine/cron:v' . EE_VERSION;
-			if ( ! EE_DOCKER::boot_container( 'ee-cron-scheduler', $cron_scheduler_run_command ) ) {
-				EE::error( 'There was some error in starting ee-cron-scheduler container. Please check logs.' );
-			}
-		}
+
 	}
 
 	/**
@@ -80,6 +76,13 @@ class Cron_Command extends EE_Command {
 	 */
 	public function create( $args, $assoc_args ) {
 
+		if ( 'running' !== EE_DOCKER::container_status( EE_CRON_SCHEDULER ) ) {
+			$cron_scheduler_run_command = 'docker run --name ' . EE_CRON_SCHEDULER . ' --restart=always -d -v ' . EE_ROOT_DIR . '/services/cron:/etc/ofelia:ro -v /var/run/docker.sock:/var/run/docker.sock:ro easyengine/cron:v' . EE_VERSION;
+			if ( ! EE_DOCKER::boot_container( EE_CRON_SCHEDULER, $cron_scheduler_run_command ) ) {
+				EE::error( 'There was some error in starting ' . EE_CRON_SCHEDULER . ' container. Please check logs.' );
+			}
+		}
+
 		EE\Utils\delem_log( 'ee cron add start' );
 
 		if ( ! isset( $args[0] ) || 'host' !== $args[0] ) {
@@ -116,6 +119,7 @@ class Cron_Command extends EE_Command {
 
 		$this->update_cron_config();
 
+		EE::success( 'Cron created successfully' );
 		EE\Utils\delem_log( 'ee cron add end' );
 	}
 
@@ -160,7 +164,7 @@ class Cron_Command extends EE_Command {
 
 		$config = $this->generate_cron_config();
 		file_put_contents( EE_ROOT_DIR . '/services/cron/config.ini', $config );
-		EE_DOCKER::restart_container( 'ee-cron-scheduler' );
+		EE_DOCKER::restart_container( EE_CRON_SCHEDULER );
 	}
 
 	/**
@@ -294,6 +298,8 @@ class Cron_Command extends EE_Command {
 
 		$this->update_cron_config();
 
+		EE::success( 'Cron update Successfully');
+
 		EE\Utils\delem_log( 'ee cron add end' );
 	}
 
@@ -402,5 +408,10 @@ class Cron_Command extends EE_Command {
 		$this->update_cron_config();
 
 		EE::success( 'Deleted cron with id ' . $id );
+
+		$cron_entries = Cron::all();
+		if ( empty( $cron_entries ) ) {
+			EE::exec( 'docker rm -f ' . EE_CRON_SCHEDULER );
+		}
 	}
 }
