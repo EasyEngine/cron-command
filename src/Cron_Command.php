@@ -96,7 +96,7 @@ class Cron_Command extends EE_Command {
 		$launch   = EE::launch( 'docker-compose config --services' );
 		$services = explode( PHP_EOL, trim( $launch->stdout ) );
 		if ( ! in_array( 'php', $services, true ) ) {
-			EE::error( $site . ' is not PHP site' );
+			EE::error( $site . ' does not have PHP container' );
 		}
 
 		if ( '@' !== substr( trim( $schedule ), 0, 1 ) ) {
