@@ -11,7 +11,10 @@
         "psr-4": {
             "": "src/"
         },
-        "files": [ "cron-command.php" ]
+        "files": [
+            "cron-command.php",
+            "src/helper/hooks.php"
+        ]
     },
     "extra": {
         "branch-alias": {
