@@ -95,11 +95,8 @@ class Cron_Command extends EE_Command {
 		$user      = EE\Utils\get_flag_value( $assoc_args, 'user' );
 		$site_info = \EE\Site\Utils\get_site_info( $args );
 
-		chdir( $site_info['site_fs_path'] );
-		$launch   = EE::launch( 'docker-compose config --services' );
-		$services = explode( PHP_EOL, trim( $launch->stdout ) );
-		if ( ! in_array( 'php', $services, true ) ) {
-			EE::error( $site . ' does not have PHP container' );
+		if ( ! EE::docker()::service_exists( 'php', $site_info['site_fs_path'] ) ) {
+			EE::error( $site . ' does not have PHP container.' );
 		}
 
 		if ( '@' !== substr( trim( $schedule ), 0, 1 ) ) {
