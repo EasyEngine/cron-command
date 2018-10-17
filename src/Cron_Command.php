@@ -299,7 +299,7 @@ class Cron_Command extends EE_Command {
 			$data_to_update['schedule'] = $schedule;
 		}
 
-		Cron::find( $cron_id )->update( $data_to_update );
+		Cron::find( $cron_id )->update( [ 'id' => $cron_id ], $data_to_update );
 
 		$this->update_cron_config();
 
