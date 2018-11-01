@@ -89,11 +89,17 @@ class Cron_Command extends EE_Command {
 			$args = auto_site_name( $args, 'cron', __FUNCTION__ );
 		}
 
-		$site      = EE\Utils\remove_trailing_slash( $args[0] );
-		$command   = EE\Utils\get_flag_value( $assoc_args, 'command' );
-		$schedule  = EE\Utils\get_flag_value( $assoc_args, 'schedule' );
-		$user      = EE\Utils\get_flag_value( $assoc_args, 'user' );
-		$site_info = \EE\Site\Utils\get_site_info( $args );
+		$site     = EE\Utils\remove_trailing_slash( $args[0] );
+		$command  = EE\Utils\get_flag_value( $assoc_args, 'command' );
+		$schedule = EE\Utils\get_flag_value( $assoc_args, 'schedule' );
+		$user     = EE\Utils\get_flag_value( $assoc_args, 'user' );
+
+		if ( 'host' !== $args[0] ) {
+			$site_info = \EE\Site\Utils\get_site_info( $args );
+			if ( ! EE::docker()::service_exists( 'php', $site_info['site_fs_path'] ) ) {
+				EE::error( $site . ' does not have PHP container.' );
+			}
+		}
 
 		if ( ! EE::docker()::service_exists( 'php', $site_info['site_fs_path'] ) ) {
 			EE::error( $site . ' does not have PHP container.' );
