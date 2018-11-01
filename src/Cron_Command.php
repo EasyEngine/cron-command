@@ -106,7 +106,10 @@ class Cron_Command extends EE_Command {
 		}
 
 		if ( '@' !== substr( trim( $schedule ), 0, 1 ) ) {
-			$schedule_length = count( array_filter( explode( ' ', $schedule ), 'trim' ) );
+			// Filter out spaces but not 0. 'trim' filter removes 0 as well.
+			$schedule_length = count( array_filter( explode( ' ', $schedule ), function ( $value ) {
+				return preg_match( '#\S#', $value );
+			} ) );
 			if ( 5 !== $schedule_length ) {
 				EE::error( 'Schedule format should be same as Linux cron or schedule helper syntax(Check help for this)' );
 			}
