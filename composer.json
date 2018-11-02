@@ -13,7 +13,8 @@
         },
         "files": [
             "cron-command.php",
-            "src/helper/hooks.php"
+            "src/helper/hooks.php",
+            "src/helper/utils.php"
         ]
     },
     "extra": {
