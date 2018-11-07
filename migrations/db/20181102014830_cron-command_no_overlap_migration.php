@@ -18,7 +18,7 @@ class NoOverlapMigration extends Base {
 			$this->skip_this_migration = true;
 		}
 		$this->source_file = EE_ROOT_DIR . '/services/cron/config.ini';
-		$this->backup_file = $this->backup_dir . '/cron/config.ini.' . time() . '.bak';
+		$this->backup_file = $this->backup_dir . '/cron/config.ini.pre-no-overlap.bak';
 	}
 
 	/**
