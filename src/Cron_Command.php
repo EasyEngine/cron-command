@@ -11,13 +11,6 @@ use function EE\Site\Utils\auto_site_name;
 class Cron_Command extends EE_Command {
 
 	/**
-	 * Runs cron container if it's not running
-	 */
-	public function __construct() {
-
-	}
-
-	/**
 	 * Adds a cron job to run a command at specific interval etc.
 	 *
 	 * ## OPTIONS
@@ -89,18 +82,23 @@ class Cron_Command extends EE_Command {
 			$args = auto_site_name( $args, 'cron', __FUNCTION__ );
 		}
 
-		$site      = EE\Utils\remove_trailing_slash( $args[0] );
-		$command   = EE\Utils\get_flag_value( $assoc_args, 'command' );
-		$schedule  = EE\Utils\get_flag_value( $assoc_args, 'schedule' );
-		$user      = EE\Utils\get_flag_value( $assoc_args, 'user' );
-		$site_info = \EE\Site\Utils\get_site_info( $args );
+		$site     = EE\Utils\remove_trailing_slash( $args[0] );
+		$command  = EE\Utils\get_flag_value( $assoc_args, 'command' );
+		$schedule = EE\Utils\get_flag_value( $assoc_args, 'schedule' );
+		$user     = EE\Utils\get_flag_value( $assoc_args, 'user' );
 
-		if ( ! EE::docker()::service_exists( 'php', $site_info['site_fs_path'] ) ) {
-			EE::error( $site . ' does not have PHP container.' );
+		if ( 'host' !== $args[0] ) {
+			$site_info = \EE\Site\Utils\get_site_info( $args );
+			if ( ! EE::docker()::service_exists( 'php', $site_info['site_fs_path'] ) ) {
+				EE::error( $site . ' does not have PHP container.' );
+			}
 		}
 
 		if ( '@' !== substr( trim( $schedule ), 0, 1 ) ) {
-			$schedule_length = count( array_filter( explode( ' ', $schedule ), 'trim' ) );
+			// Filter out spaces but not 0. 'trim' filter removes 0 as well.
+			$schedule_length = count( array_filter( explode( ' ', $schedule ), function ( $value ) {
+				return preg_match( '#\S#', $value );
+			} ) );
 			if ( 5 !== $schedule_length ) {
 				EE::error( 'Schedule format should be same as Linux cron or schedule helper syntax(Check help for this)' );
 			}
@@ -122,7 +120,7 @@ class Cron_Command extends EE_Command {
 
 		Cron::create( $cron_data );
 
-		$this->update_cron_config();
+		EE\Cron\Utils\update_cron_config();
 
 		EE::success( 'Cron created successfully' );
 		EE\Utils\delem_log( 'ee cron add end' );
@@ -160,52 +158,6 @@ class Cron_Command extends EE_Command {
 		}
 
 		return "sh -c '" . $command . "'";
-	}
-
-	/**
-	 * Generates cron config from DB
-	 */
-	private function update_cron_config() {
-
-		$config = $this->generate_cron_config();
-		file_put_contents( EE_ROOT_DIR . '/services/cron/config.ini', $config );
-		EE_DOCKER::restart_container( EE_CRON_SCHEDULER );
-	}
-
-	/**
-	 * Generates and returns cron config from DB
-	 */
-	private function generate_cron_config() {
-
-		$config_template = file_get_contents( __DIR__ . '/../templates/config.ini.mustache' );
-		$crons           = Cron::all();
-
-		foreach ( $crons as &$cron ) {
-			$job_type       = 'host' === $cron->site_url ? 'job-local' : 'job-exec';
-			$id             = $cron->site_url . '-' . preg_replace( '/[^a-zA-Z0-9\@]/', '-', $cron->command ) . '-' . EE\Utils\random_password( 5 );
-			$id             = preg_replace( '/--+/', '-', $id );
-			$cron->job_type = $job_type;
-			$cron->id       = $id;
-
-			if ( 'host' !== $cron->site_url ) {
-				$cron->container = $this->site_php_container( $cron->site_url );
-			}
-		}
-
-		$me = new Mustache_Engine();
-
-		return $me->render( $config_template, $crons );
-	}
-
-	/**
-	 * Returns php container name of a site.
-	 *
-	 * @param string $site Name of the site whose container name is needed.
-	 *
-	 * @return string Container name.
-	 */
-	private function site_php_container( $site ) {
-		return str_replace( '.', '', $site ) . '_php_1';
 	}
 
 	/**
@@ -301,9 +253,9 @@ class Cron_Command extends EE_Command {
 
 		Cron::update( [ 'id' => $cron_id ], $data_to_update );
 
-		$this->update_cron_config();
+		EE\Cron\Utils\update_cron_config();
 
-		EE::success( 'Cron update Successfully');
+		EE::success( 'Cron update Successfully' );
 
 		EE\Utils\delem_log( 'ee cron add end' );
 	}
@@ -374,12 +326,13 @@ class Cron_Command extends EE_Command {
 			EE::error( 'No such cron with id ' . $args[0] );
 		}
 
-		$container = $this->site_php_container( $cron->site_url );
+		$container = EE\Cron\Utils\site_php_container( $cron->site_url );
 		$command   = $cron->command;
 		$user      = empty( $cron->user ) ? 'root' : $cron->user;
 
 		if ( 'host' === $cron->site_url ) {
 			EE::exec( $command, true, true );
+
 			return;
 		}
 
@@ -410,7 +363,7 @@ class Cron_Command extends EE_Command {
 		}
 
 		$cron->delete();
-		$this->update_cron_config();
+		EE\Cron\Utils\update_cron_config();
 
 		EE::success( 'Deleted cron with id ' . $id );
 
