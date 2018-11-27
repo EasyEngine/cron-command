@@ -5,6 +5,8 @@ namespace EE\Migration;
 use EE;
 use EE\Migration\Base;
 use EE\Model\Cron;
+use EE_DOCKER;
+use EE\Cron\Utils as Cron_Utils;
 
 class NoOverlapMigration extends Base {
 
@@ -51,7 +53,7 @@ class NoOverlapMigration extends Base {
 			}
 		}
 		// Fix no-overlap.
-		EE\Cron\Utils\update_cron_config();
+		Cron_Utils\update_cron_config();
 	}
 
 	/**
@@ -62,6 +64,6 @@ class NoOverlapMigration extends Base {
 	public function down() {
 
 		$this->fs->copy( $this->backup_file, $this->source_file );
-		\EE_DOCKER::restart_container( EE_CRON_SCHEDULER );
+		EE_DOCKER::restart_container( EE_CRON_SCHEDULER );
 	}
 }
