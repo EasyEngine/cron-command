@@ -91,7 +91,7 @@ class Cron_Command extends EE_Command {
 
 		if ( 'host' !== $args[0] ) {
 			$site_info = Site_Utils\get_site_info( $args );
-			if ( ! EE::docker()::service_exists( 'php', $site_info['site_fs_path'] ) ) {
+			if ( ! EE_DOCKER::service_exists( 'php', $site_info['site_fs_path'] ) ) {
 				EE::error( $site . ' does not have PHP container.' );
 			}
 		}
