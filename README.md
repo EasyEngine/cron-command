@@ -11,12 +11,24 @@ Quick links: [Using](#using) | [Contributing](#contributing) | [Support](#suppor
 
 This package implements the following commands:
 
-### ee cron add
+### ee cron
+
+Manages cron on easyengine sites and host machine.
+
+~~~
+ee cron
+~~~
+
+
+
+
+
+### ee cron create
 
 Adds a cron job to run a command at specific interval etc.
 
 ~~~
-ee cron add [<site-name>] --command=<command> --schedule=<schedule>
+ee cron create [<site-name>] --command=<command> --schedule=<schedule> [--user=<user>]
 ~~~
 
 **OPTIONS**
@@ -30,15 +42,48 @@ ee cron add [<site-name>] --command=<command> --schedule=<schedule>
 	--schedule=<schedule>
 		Time to schedule. Format is same as Linux cron.
 
+	[--user=<user>]
+		User to execute command as.
+
 We also have helper to easily specify scheduling format:
 
- Entry                  | Description                                | Equivalent To
- -----                  | -----------                                | -------------
- @yearly (or @annually) | Run once a year, midnight, Jan. 1st        | 0 0 1 1 *
- @monthly               | Run once a month, midnight, first of month | 0 0 1 * *
- @weekly                | Run once a week, midnight between Sat/Sun  | 0 0 * * 0
- @daily (or @midnight)  | Run once a day, midnight                   | 0 0 * * *
- @hourly                | Run once an hour, beginning of hour        | 0 * * * *
+| Entry                  | Description                                | Equivalent To
+| -----                  | -----------                                | -------------
+| @yearly (or @annually) | Run once a year, midnight, Jan. 1st        | 0 0 1 1 *
+| @monthly               | Run once a month, midnight, first of month | 0 0 1 * *
+| @weekly                | Run once a week, midnight between Sat/Sun  | 0 0 * * 0
+| @daily (or @midnight)  | Run once a day, midnight                   | 0 0 * * *
+| @hourly                | Run once an hour, beginning of hour        | 0 * * * *
+
+You may also schedule a job to execute at fixed intervals, starting at the time it's added or cron is run.
+This is supported by following format:
+
+- @every <duration>
+
+Where duration can be combination of:
+   <number>h  - hour
+   <number>m  - minute
+   <number>s  - second
+
+   So 1h10m2s is also a valid duration
+
+**EXAMPLES**
+
+    # Adds a cron job on example.com every 10 minutes
+    $ ee cron create example.com --command='wp cron event run --due-now' --schedule='@every 10m'
+
+    # Adds a cron job on example.com every 1 minutes
+    $ ee cron create example.com --command='wp cron event run --due-now' --schedule='* * * * *'
+
+    # Adds a cron job on example.com every 1 minutes run as user www-data
+    $ ee cron create example.com --command='wp cron event run --due-now' --schedule='* * * * *' --user=www-data
+
+    # Adds a cron job to host running EasyEngine
+    $ ee cron create host --command='wp cron event run --due-now' --schedule='@every 10m'
+
+    # Adds a cron job to host running EasyEngine
+    $ ee cron create host --command='wp media regenerate --yes' --schedule='@weekly'
+
 
 
 ### ee cron delete
@@ -58,6 +103,69 @@ ee cron delete <cron-id>
 
     # Deletes a cron jobs
     $ ee cron delete 1
+
+
+
+### ee cron update
+
+Updates a cron job.
+
+~~~
+ee cron update <id> [--site=<site>] [--command=<command>] [--schedule=<schedule>] [--user=<user>]
+~~~
+
+**OPTIONS**
+
+	<id>
+		ID of cron to update.
+
+	[--site=<site>]
+		Command to schedule.
+
+	[--command=<command>]
+		Command to schedule.
+
+	[--schedule=<schedule>]
+		Time to schedule. Format is same as Linux cron.
+
+	[--user=<user>]
+		User to execute command as.
+
+We also have helper to easily specify scheduling format:
+
+| Entry                   | Description                                | Equivalent To
+| -----                   | -----------                                | -------------
+| @yearly (or @annually)  | Run once a year, midnight, Jan. 1st        | 0 0 1 1 *
+| @monthly                | Run once a month, midnight, first of month | 0 0 1 * *
+| @weekly                 | Run once a week, midnight between Sat/Sun  | 0 0 * * 0
+| @daily (or @midnight)   | Run once a day, midnight                   | 0 0 * * *
+| @hourly                 | Run once an hour, beginning of hour        | 0 * * * *
+
+You may also schedule a job to execute at fixed intervals, starting at the time it's added or cron is run.
+This is supported by following format:
+
+- @every <duration>
+
+Where duration can be combination of:
+   <number>h  - hour
+   <number>m  - minute
+   <number>s  - second
+
+   So 1h10m2s is also a valid duration
+
+**EXAMPLES**
+
+    # Updates site to run cron on
+    $ ee cron update 1 --site='example1.com'
+
+    # Updates command of cron
+    $ ee cron update 1 --command='wp cron event run --due-now'
+
+    # Updates command and user of cron
+    $ ee cron update 1 --command='wp cron event run --due-now' --user=root
+
+    # Updates schedule of cron
+    $ ee cron update 1 --schedule='@every 1m'
 
 
 
@@ -111,7 +219,6 @@ We appreciate you taking the initiative to contribute to this project.
 
 Contributing isn’t limited to just code. We encourage you to contribute in the way that best fits your abilities, by writing tutorials, giving a demo at your local meetup, helping other users with their support questions, or revising our documentation.
 
-
 ### Reporting a bug
 
 Think you’ve found a bug? We’d love for you to help us get it fixed.
@@ -129,4 +236,4 @@ Want to contribute a new feature? Please first [open a new issue](https://github
 Github issues aren't for general support questions, but there are other venues you can try: https://easyengine.io/support/
 
 
-*This README.md is generated dynamically from the project's codebase using `ee scaffold package-readme` ([doc](https://github.com/easyengine/scaffold-package-command)). To suggest changes, please submit a pull request against the corresponding part of the codebase.*
+*This README.md is generated dynamically from the project's codebase using `ee scaffold package-readme` ([doc](https://github.com/EasyEngine/scaffold-command)). To suggest changes, please submit a pull request against the corresponding part of the codebase.*

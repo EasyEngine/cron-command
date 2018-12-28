@@ -23,8 +23,10 @@
         },
         "bundled": true,
         "commands": [
-            "cron add",
+            "cron",
+            "cron create",
             "cron delete",
+            "cron update",
             "cron list",
             "cron run-now"
         ]
