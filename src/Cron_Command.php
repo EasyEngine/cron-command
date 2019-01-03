@@ -1,7 +1,9 @@
 <?php
 
 use EE\Model\Cron;
-use function EE\Site\Utils\auto_site_name;
+use EE\Site\Utils as Site_Utils;
+use EE\Utils as EE_Utils;
+use EE\Cron\Utils as Cron_Utils;
 
 /**
  * Manages cron on easyengine sites and host machine.
@@ -69,26 +71,26 @@ class Cron_Command extends EE_Command {
 	public function create( $args, $assoc_args ) {
 
 		if ( 'running' !== EE_DOCKER::container_status( EE_CRON_SCHEDULER ) ) {
-			$img_versions               = \EE\Utils\get_image_versions();
+			$img_versions               = EE_Utils\get_image_versions();
 			$cron_scheduler_run_command = 'docker run --name ' . EE_CRON_SCHEDULER . ' --restart=always -d -v ' . EE_ROOT_DIR . '/services/cron:/etc/ofelia:ro -v /var/run/docker.sock:/var/run/docker.sock:ro easyengine/cron:' . $img_versions['easyengine/cron'];
 			if ( ! EE_DOCKER::boot_container( EE_CRON_SCHEDULER, $cron_scheduler_run_command ) ) {
 				EE::error( 'There was some error in starting ' . EE_CRON_SCHEDULER . ' container. Please check logs.' );
 			}
 		}
 
-		EE\Utils\delem_log( 'ee cron add start' );
+		EE_Utils\delem_log( 'ee cron add start' );
 
 		if ( ! isset( $args[0] ) || 'host' !== $args[0] ) {
-			$args = auto_site_name( $args, 'cron', __FUNCTION__ );
+			$args = Site_Utils\auto_site_name( $args, 'cron', __FUNCTION__ );
 		}
 
-		$site     = EE\Utils\remove_trailing_slash( $args[0] );
-		$command  = EE\Utils\get_flag_value( $assoc_args, 'command' );
-		$schedule = EE\Utils\get_flag_value( $assoc_args, 'schedule' );
-		$user     = EE\Utils\get_flag_value( $assoc_args, 'user' );
+		$site     = EE_Utils\remove_trailing_slash( $args[0] );
+		$command  = EE_Utils\get_flag_value( $assoc_args, 'command' );
+		$schedule = EE_Utils\get_flag_value( $assoc_args, 'schedule' );
+		$user     = EE_Utils\get_flag_value( $assoc_args, 'user' );
 
 		if ( 'host' !== $args[0] ) {
-			$site_info = \EE\Site\Utils\get_site_info( $args );
+			$site_info = Site_Utils\get_site_info( $args );
 			if ( ! EE_DOCKER::service_exists( 'php', $site_info['site_fs_path'] ) ) {
 				EE::error( $site . ' does not have PHP container.' );
 			}
@@ -120,10 +122,10 @@ class Cron_Command extends EE_Command {
 
 		Cron::create( $cron_data );
 
-		EE\Cron\Utils\update_cron_config();
+		Cron_Utils\update_cron_config();
 
 		EE::success( 'Cron created successfully' );
-		EE\Utils\delem_log( 'ee cron add end' );
+		EE_Utils\delem_log( 'ee cron add end' );
 	}
 
 	/**
@@ -133,7 +135,7 @@ class Cron_Command extends EE_Command {
 	 *
 	 * @param string $command Command whose syntax needs to be validated.
 	 *
-	 * @throws \EE\ExitException
+	 * @throws EE\ExitException
 	 */
 	private function validate_command( $command ) {
 
@@ -218,13 +220,13 @@ class Cron_Command extends EE_Command {
 	 */
 	public function update( $args, $assoc_args ) {
 
-		EE\Utils\delem_log( 'ee cron add start' );
+		EE_Utils\delem_log( 'ee cron add start' );
 
 		$data_to_update = [];
-		$site           = EE\Utils\get_flag_value( $assoc_args, 'site' );
-		$command        = EE\Utils\get_flag_value( $assoc_args, 'command' );
-		$schedule       = EE\Utils\get_flag_value( $assoc_args, 'schedule' );
-		$user           = EE\Utils\get_flag_value( $assoc_args, 'user' );
+		$site           = EE_Utils\get_flag_value( $assoc_args, 'site' );
+		$command        = EE_Utils\get_flag_value( $assoc_args, 'command' );
+		$schedule       = EE_Utils\get_flag_value( $assoc_args, 'schedule' );
+		$user           = EE_Utils\get_flag_value( $assoc_args, 'user' );
 		$cron_id        = $args[0];
 
 		if ( ! $site && ! $command && ! $schedule && ! $user ) {
@@ -253,11 +255,11 @@ class Cron_Command extends EE_Command {
 
 		Cron::update( [ 'id' => $cron_id ], $data_to_update );
 
-		EE\Cron\Utils\update_cron_config();
+		Cron_Utils\update_cron_config();
 
 		EE::success( 'Cron update Successfully' );
 
-		EE\Utils\delem_log( 'ee cron add end' );
+		EE_Utils\delem_log( 'ee cron add end' );
 	}
 
 	/**
@@ -283,10 +285,10 @@ class Cron_Command extends EE_Command {
 	 */
 	public function _list( $args, $assoc_args ) {
 
-		$all = EE\Utils\get_flag_value( $assoc_args, 'all' );
+		$all = EE_Utils\get_flag_value( $assoc_args, 'all' );
 
 		if ( ( ! isset( $args[0] ) || 'host' !== $args[0] ) && ! $all ) {
-			$args = auto_site_name( $args, 'cron', 'list' );
+			$args = Site_Utils\auto_site_name( $args, 'cron', 'list' );
 		}
 
 		if ( isset( $args[0] ) ) {
@@ -300,7 +302,7 @@ class Cron_Command extends EE_Command {
 			EE::error( 'No cron jobs found.' );
 		}
 
-		EE\Utils\format_items( 'table', $crons, [ 'id', 'site_url', 'command', 'schedule' ] );
+		EE_Utils\format_items( 'table', $crons, [ 'id', 'site_url', 'command', 'schedule' ] );
 	}
 
 	/**
@@ -326,7 +328,7 @@ class Cron_Command extends EE_Command {
 			EE::error( 'No such cron with id ' . $args[0] );
 		}
 
-		$container = EE\Cron\Utils\site_php_container( $cron->site_url );
+		$container = Cron_Utils\site_php_container( $cron->site_url );
 		$command   = $cron->command;
 		$user      = empty( $cron->user ) ? 'root' : $cron->user;
 
@@ -363,7 +365,7 @@ class Cron_Command extends EE_Command {
 		}
 
 		$cron->delete();
-		EE\Cron\Utils\update_cron_config();
+		Cron_Utils\update_cron_config();
 
 		EE::success( 'Deleted cron with id ' . $id );
 

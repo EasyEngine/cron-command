@@ -4,6 +4,9 @@ namespace EE\Cron\Utils;
 
 use EE;
 use EE\Model\Cron;
+use EE_DOCKER;
+use EE\Utils as EE_Utils;
+use Mustache_Engine;
 
 /**
  * Generates cron config from DB
@@ -12,7 +15,7 @@ function update_cron_config() {
 
 	$config = generate_cron_config();
 	file_put_contents( EE_ROOT_DIR . '/services/cron/config.ini', $config );
-	\EE_DOCKER::restart_container( EE_CRON_SCHEDULER );
+	EE_DOCKER::restart_container( EE_CRON_SCHEDULER );
 }
 
 /**
@@ -25,7 +28,7 @@ function generate_cron_config() {
 
 	foreach ( $crons as &$cron ) {
 		$job_type       = 'host' === $cron->site_url ? 'job-local' : 'job-exec';
-		$id             = $cron->site_url . '-' . preg_replace( '/[^a-zA-Z0-9\@]/', '-', $cron->command ) . '-' . EE\Utils\random_password( 5 );
+		$id             = $cron->site_url . '-' . preg_replace( '/[^a-zA-Z0-9\@]/', '-', $cron->command ) . '-' . EE_Utils\random_password( 5 );
 		$id             = preg_replace( '/--+/', '-', $id );
 		$cron->job_type = $job_type;
 		$cron->id       = $id;
@@ -35,7 +38,7 @@ function generate_cron_config() {
 		}
 	}
 
-	$me = new \Mustache_Engine();
+	$me = new Mustache_Engine();
 
 	return $me->render( $config_template, $crons );
 }
