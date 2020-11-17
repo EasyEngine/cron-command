@@ -8,7 +8,14 @@ use EE\Model\Cron;
 
 class UpdateCronUser extends Base {
 
+	public function __construct() {
 
+		parent::__construct();
+		$this->sites = Site::all();
+		if ( $this->is_first_execution || ! $this->sites ) {
+			$this->skip_this_migration = true;
+		}
+	}
 	/**
 	 * @throws EE\ExitException
 	 */
