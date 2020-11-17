@@ -302,7 +302,7 @@ class Cron_Command extends EE_Command {
 			EE::error( 'No cron jobs found.' );
 		}
 
-		EE\Utils\format_items( 'table', $crons, [ 'id', 'site_url', 'user','command', 'schedule' ] );
+ 		EE\Utils\format_items( 'table', $crons, [ 'id', 'site_url', 'user', 'command', 'schedule' ] );
 	}
 
 	/**
