@@ -14,7 +14,8 @@
         "files": [
             "cron-command.php",
             "src/helper/hooks.php",
-            "src/helper/utils.php"
+            "src/helper/utils.php",
+            "src/db/Cron.php"
         ]
     },
     "extra": {
