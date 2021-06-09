@@ -5,6 +5,7 @@ namespace EE\Migration;
 use EE;
 use EE\Migration\Base;
 use EE\Model\Cron;
+use EE\Model\Site;
 
 class UpdateCronUser extends Base {
 
