@@ -9,11 +9,11 @@
     "prefer-stable": true,
     "autoload": {
         "psr-4": {
-            "": "src/"
+            "": "src/",
+            "EE\\Model\\": "src/db/"
         },
         "files": [
             "cron-command.php",
-            "src/helper/hooks.php",
             "src/helper/utils.php"
         ]
     },

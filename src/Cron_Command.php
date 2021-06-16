@@ -92,6 +92,9 @@ class Cron_Command extends EE_Command {
 			if ( ! EE_DOCKER::service_exists( 'php', $site_info['site_fs_path'] ) ) {
 				EE::error( $site . ' does not have PHP container.' );
 			}
+			if ( $user === null ) {
+				$user = 'www-data';
+			}
 		}
 
 		if ( '@' !== substr( trim( $schedule ), 0, 1 ) ) {
@@ -295,12 +298,11 @@ class Cron_Command extends EE_Command {
 			$crons = Cron::all();
 		}
 
-
 		if ( empty( $crons ) ) {
 			EE::error( 'No cron jobs found.' );
 		}
 
-		EE\Utils\format_items( 'table', $crons, [ 'id', 'site_url', 'command', 'schedule' ] );
+ 		EE\Utils\format_items( 'table', $crons, [ 'id', 'site_url', 'user', 'command', 'schedule' ] );
 	}
 
 	/**
