@@ -36,7 +36,7 @@ function regenerate_cron_config() {
 	$config_template = file_get_contents( __DIR__ . '/../../templates/config.ini.mustache' );
 	$crons           = Cron::all();
 
-	if ( empty( $cron ) ) {
+	if ( empty( $crons ) ) {
 		EE::exec( 'docker rm -f ' . EE_CRON_SCHEDULER );
 	}
 
