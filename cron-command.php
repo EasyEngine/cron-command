@@ -5,7 +5,7 @@ if ( ! class_exists( 'EE' ) ) {
 }
 
 if ( ! defined( 'EE_CRON_SCHEDULER' ) ) {
-	define( 'EE_CRON_SCHEDULER', 'ee-cron-scheduler' );
+	define( 'EE_CRON_SCHEDULER', 'services_global-cron_1' );
 }
 
 $autoload = dirname( __FILE__ ) . '/vendor/autoload.php';
