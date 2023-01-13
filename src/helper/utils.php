@@ -11,7 +11,7 @@ use EE\Model\Cron;
 function update_cron_config() {
 
 	$config = generate_cron_config();
-	file_put_contents( EE_ROOT_DIR . '/services/cron/config.ini', $config );
+	file_put_contents( EE_SERVICE_DIR . '/cron/conf/config.ini', $config );
 	\EE_DOCKER::restart_container( EE_CRON_SCHEDULER );
 }
 
