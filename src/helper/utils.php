@@ -48,5 +48,10 @@ function generate_cron_config() {
  * @return string Container name.
  */
 function site_php_container( $site ) {
-	return str_replace( '.', '', $site ) . '_php_1';
+
+	$site_data     = \EE\Site\Utils\get_site_info( [ $site ], false, false, true );
+	$command       = 'cd ' . $site_data['site_fs_path'] . " && docker-compose ps --format '{{.Name}}'  php";
+	$php_container = trim( EE::launch( $command )->stdout );
+
+	return $php_container;
 }
