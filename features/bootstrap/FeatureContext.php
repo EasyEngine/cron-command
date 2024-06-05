@@ -130,7 +130,7 @@ class FeatureContext implements Context
 	}
 
 	/**
-	 * @When I list cron entries for the site `:site_name`
+	 * @When I list cron jobs for the site `:site_name`
 	 */
 	function list_cron_for_site(string $site_name) {
 		$this->command = "ee cron list $site_name";
