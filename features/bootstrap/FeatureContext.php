@@ -154,8 +154,8 @@ class FeatureContext implements Context
 	 * @AfterScenario
 	 */
 	function after_scenario_cleanup() {
-		$this->command = null;
-		$this->output = null;
+		$this->command = "";
+		$this->output = "";
 		$this->return_status = 0;
 		foreach ($this->sites_created as $site) {
 			exec("ee site delete $site --yes");
