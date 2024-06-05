@@ -20,6 +20,7 @@ class FeatureContext implements Context
 	public string $command;
 	public string $output;
 	public int $return_status;
+	public array $sites_created = [];
 
 	/**
 	 * Initializes context.
@@ -89,6 +90,75 @@ class FeatureContext implements Context
 	{
 		if ("" !== trim($this->output)) {
 			throw new Exception(unexpectedOutput($this->command, $this->output, $this->return_status));
+		}
+	}
+
+	/**
+	 * @Given I created site `:site_name` with type `:site_type`
+	 */
+	function create_site(string $site_name, string $site_type) {
+		$this->sites_created[] = $site_name;
+		exec("ee site create $site_name --type=$site_type", $output, $return_status);
+		if ($return_status !== 0) {
+			throw new Exception("Could not create site $site_name with type $site_type. Output: " . implode($output));
+		}
+	}
+
+	/**
+	 * @Then I should see a list of cron jobs for those sites
+	 */
+	function crons_for_all_sites() {
+		$this->command = "ee cron list --all";
+		exec($this->command, $output, $return_status);
+		$this->output = implode($output);
+		$this->return_status = $return_status;
+
+		foreach ($this->sites_created as $site) {
+			if (strpos($this->output, $site) === false) {
+				throw new Exception("Could not find cron job for site $site in the output of the command: " . $this->output);
+			}
+		}
+	}
+
+	/**
+	 * @Then exit code must be 0
+	 */
+	function zero_status() {
+		if ($this->return_status !== 0) {
+			throw new Exception(unexpectedOutput($this->command, $this->output, $this->return_status));
+		}
+	}
+
+	/**
+	 * @When I list cron entries for the site `:site_name`
+	 */
+	function list_cron_for_site(string $site_name) {
+		$this->command = "ee cron list $site_name";
+		exec($this->command, $output, $return_status);
+		$this->output = implode($output);
+		$this->return_status = $return_status;
+	}
+
+	/**
+	 * @Then I should see a list of cron jobs for the site `:site_name`
+	 */
+	function crons_for_site(string $site_name) {
+		if (strpos($this->output, $site_name) === false) {
+			throw new Exception("Could not find cron job for site $site_name in the output of the command: " . $this->output);
+		}
+	}
+
+	/**
+	 * After Scenario Cleanup Hook
+	 *
+	 * @AfterScenario
+	 */
+	function after_scenario_cleanup() {
+		$this->command = null;
+		$this->output = null;
+		$this->return_status = 0;
+		foreach ($this->sites_created as $site) {
+			exec("ee site delete $site --yes");
 		}
 	}
 }
