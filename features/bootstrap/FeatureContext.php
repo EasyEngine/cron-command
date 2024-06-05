@@ -160,5 +160,6 @@ class FeatureContext implements Context
 		foreach ($this->sites_created as $site) {
 			exec("ee site delete $site --yes");
 		}
+		$this->sites_created = [];
 	}
 }
