@@ -6,12 +6,6 @@ use Behat\Gherkin\Node\PyStringNode;
 use Behat\Gherkin\Node\TableNode;
 
 
-function unexpectedOutput(string $command, string $output, int $return_status): string
-{
-	return "Command did not exit as expected. Ran `$command` and got a return status code of `$return_status` with the following output:\n\n" . $output;
-}
-
-
 /**
  * Defines behat context for ``ee cron list``.
  */
