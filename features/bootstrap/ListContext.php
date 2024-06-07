@@ -1,6 +1,7 @@
 <?php
 
 use Behat\Behat\Context\Context;
+use Behat\Behat\Hook\Scope\BeforeScenarioScope;
 use Behat\Gherkin\Node\PyStringNode;
 use Behat\Gherkin\Node\TableNode;
 
@@ -17,10 +18,7 @@ function unexpectedOutput(string $command, string $output, int $return_status): 
 class ListContext implements Context
 {
 
-	public string $command;
-	public string $output;
-	public int $return_status;
-	public array $sites_created = [];
+	private SharedContext $shared_context;
 
 	/**
 	 * Initializes context.
@@ -33,32 +31,12 @@ class ListContext implements Context
 	{
 	}
 
-
 	/**
-	 * @Given EE is present
+	 * @BeforeScenario
 	 */
-	public function ee_is_present()
+	public function gatherSharedContext(BeforeScenarioScope $scope)
 	{
-		exec("command -v ee", $output, $return_status);
-		if (0 !== $return_status) {
-			throw new Exception("EE is not present. Can not continue.");
-		}
-	}
-
-
-	/**
-	 * @Given No site has been created
-	 */
-	function no_site_created()
-	{
-		exec("ee site list --format=text", $output, $return_status);
-		if ($return_status === 0) {
-			throw new Exception(
-				"The following sites are present on the ee installation:\n" .
-					$output .
-					"\nNot continuing the test to not disrupt the system state. To run the test, please execute it on a fresh installation of Easy Engine."
-			);
-		}
+		$this->shared_context = $scope->getEnvironment()->getContext(SharedContext::class);
 	}
 
 	/**
@@ -66,100 +44,60 @@ class ListContext implements Context
 	 */
 	function list_cron()
 	{
-		$this->command = "ee cron list --all";
-		exec($this->command, $output, $return_status);
-		$this->output = implode($output);
-		$this->return_status = $return_status;
-	}
-
-	/**
-	 * @Then Exit Code must not be 0
-	 */
-	function non_zero_status()
-	{
-		if ($this->return_status === 0) {
-			throw new Exception(unexpectedOutput($this->command, $this->output, $this->return_status));
-		}
+		$this->shared_context->command = "ee cron list --all";
+		exec($this->shared_context->command, $output, $return_status);
+		$this->shared_context->output = implode($output);
+		$this->shared_context->return_status = $return_status;
 	}
 
 
 	/**
 	 * @Then I get an error message for no cron jobs
+	 * @throws Exception: If the output is not empty
 	 */
 	function no_cron_error()
 	{
-		if ("" !== trim($this->output)) {
-			throw new Exception(unexpectedOutput($this->command, $this->output, $this->return_status));
-		}
-	}
-
-	/**
-	 * @Given I created site `:site_name` with type `:site_type`
-	 */
-	function create_site(string $site_name, string $site_type) {
-		$this->sites_created[] = $site_name;
-		exec("ee site create $site_name --type=$site_type", $output, $return_status);
-		if ($return_status !== 0) {
-			throw new Exception("Could not create site $site_name with type $site_type. Output: " . implode($output));
+		if ("" !== trim($this->shared_context->output)) {
+			throw new Exception(unexpectedOutput($this->shared_context->command, $this->shared_context->output, $this->shared_context->return_status));
 		}
 	}
 
 	/**
 	 * @Then I should see a list of cron jobs for those sites
+	 * @throws Exception: If the site name is not found in the output
 	 */
 	function crons_for_all_sites() {
-		$this->command = "ee cron list --all";
-		exec($this->command, $output, $return_status);
-		$this->output = implode($output);
-		$this->return_status = $return_status;
+		$this->shared_context->command = "ee cron list --all";
+		exec($this->shared_context->command, $output, $return_status);
+		$this->shared_context->output = implode($output);
+		$this->shared_context->return_status = $return_status;
 
-		foreach ($this->sites_created as $site) {
-			if (strpos($this->output, $site) === false) {
-				throw new Exception("Could not find cron job for site $site in the output of the command: " . $this->output);
+		foreach ($this->shared_context->sites_created as $site) {
+			if (strpos($this->shared_context->output, $site) === false) {
+				throw new Exception("Could not find cron job for site $site in the output of the command: " . $this->shared_context->output);
 			}
 		}
 	}
 
-	/**
-	 * @Then exit code must be 0
-	 */
-	function zero_status() {
-		if ($this->return_status !== 0) {
-			throw new Exception(unexpectedOutput($this->command, $this->output, $this->return_status));
-		}
-	}
 
 	/**
 	 * @When I list cron jobs for the site `:site_name`
 	 */
 	function list_cron_for_site(string $site_name) {
-		$this->command = "ee cron list $site_name";
-		exec($this->command, $output, $return_status);
-		$this->output = implode($output);
-		$this->return_status = $return_status;
+		$this->shared_context->command = "ee cron list $site_name";
+		exec($this->shared_context->command, $output, $return_status);
+		$this->shared_context->output = implode($output);
+		$this->shared_context->return_status = $return_status;
 	}
 
 	/**
 	 * @Then I should see a list of cron jobs for the site `:site_name`
+	 * @throws Exception: If the site name is not found in the output
 	 */
 	function crons_for_site(string $site_name) {
-		if (strpos($this->output, $site_name) === false) {
-			throw new Exception("Could not find cron job for site $site_name in the output of the command: " . $this->output);
+		if (strpos($this->shared_context->output, $site_name) === false) {
+			throw new Exception("Could not find cron job for site $site_name in the output of the command: " . $this->shared_context->output);
 		}
 	}
 
-	/**
-	 * After Scenario Cleanup Hook
-	 *
-	 * @AfterScenario
-	 */
-	function after_scenario_cleanup() {
-		$this->command = "";
-		$this->output = "";
-		$this->return_status = 0;
-		foreach ($this->sites_created as $site) {
-			exec("ee site delete $site --yes");
-		}
-		$this->sites_created = [];
-	}
 }

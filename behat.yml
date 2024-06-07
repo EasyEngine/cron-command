@@ -4,4 +4,5 @@ default:
       paths:
         - "%paths.base%/features/list.feature"
       contexts:
+        - "SharedContext"
         - "ListContext"
