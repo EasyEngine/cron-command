@@ -1,0 +1,7 @@
+default:
+  suites:
+    list:
+      paths:
+        - "%paths.base%/features/list.feature"
+      contexts:
+        - "ListContext"

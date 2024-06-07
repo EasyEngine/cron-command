@@ -12,9 +12,9 @@ function unexpectedOutput(string $command, string $output, int $return_status): 
 
 
 /**
- * Defines application features from the specific context.
+ * Defines behat context for ``ee cron list``.
  */
-class FeatureContext implements Context
+class ListContext implements Context
 {
 
 	public string $command;
