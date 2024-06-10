@@ -12,3 +12,9 @@ default:
       contexts:
         - "SharedContext"
         - "CreateContext"
+    delete:
+      paths:
+        - "%paths.base%/features/delete.feature"
+      contexts:
+        - "SharedContext"
+        - "DeleteContext"

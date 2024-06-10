@@ -23,6 +23,7 @@ class SharedContext implements Context
 	public int $return_status;
 
 	public array $sites_created = [];
+	public int $cron_created = -1;
 
 	/**
 	 * Initializes context.
@@ -109,6 +110,26 @@ class SharedContext implements Context
 		}
 	}
 
+	/**
+	 * @Given I created cron for site `:site_name` with schedule `:schedule` and command `:command`
+	 */
+	function create_cron(string $site_name, string $schedule, string $command) {
+		$to_exec = "ee cron create $site_name --schedule=\"$schedule\" --command=\"$command\"";
+		exec($to_exec, $_, $return_status);
+		if ($return_status !== 0) {
+			throw new Exception("Could not create cron job for site $site_name with schedule $schedule and command $command. Output:\n" . $output);
+		}
+		// Cron is created, now we need to find the cron id
+		exec(
+			"ee cron list $site_name | grep \"$site_name\" | grep \"$schedule\" | grep \"$command\" | awk '{print $1}'",
+			$_output, $return_status
+		);
+		if ($return_status !== 0) {
+			throw new Exception("Could not find the cron job in the list of crons. Output:\n" . $output);
+		}
+		$this->cron_created = (int) $_output[0];  // The cron id
+	}
+
 
 	/**
 	 * After Scenario Cleanup Hook
@@ -119,6 +140,7 @@ class SharedContext implements Context
 		$this->command = "";
 		$this->output = "";
 		$this->return_status = 0;
+		$this->cron_created = -1;
 
 		foreach ($this->sites_created as $site) {
 			exec("ee site delete $site --yes");
