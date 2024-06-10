@@ -6,3 +6,9 @@ default:
       contexts:
         - "SharedContext"
         - "ListContext"
+    create:
+      paths:
+        - "%paths.base%/features/create.feature"
+      contexts:
+        - "SharedContext"
+        - "CreateContext"

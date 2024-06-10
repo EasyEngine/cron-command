@@ -1,6 +1,8 @@
-Feature: Cron-Command
+Feature: Cron-Command -> List
   We have a command that we make use of in order to manage cron-jobs
-  run by easyengine using ofelia cron manager.
+  run by easyengine using ofelia cron manager. This is a subcommand
+  used to list all of the cron jobs that are currently configured to
+  be managed and run by EasyEngine.
 
   Scenario:
     If I list all of the cron entries and there are no sites

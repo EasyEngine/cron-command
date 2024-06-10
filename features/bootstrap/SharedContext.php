@@ -98,6 +98,17 @@ class SharedContext implements Context
 		}
 	}
 
+	/**
+	 * @Then I should see `:message`
+	 * @throws Exception: If the output does not contain the success message
+	 */
+	function see_message(string $message)
+	{
+		if (strpos(trim($this->output), $message) === false) {
+			throw new Exception("Could not find the message '$message' in the output of the command: " . $this->output);
+		}
+	}
+
 
 	/**
 	 * After Scenario Cleanup Hook
