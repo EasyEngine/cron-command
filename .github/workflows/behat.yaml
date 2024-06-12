@@ -68,16 +68,12 @@ jobs:
                     composer dump-autoload
                     cd ${{ github.workspace }}
 
-            -   name: Make and install EasyEngine phar
+            -   name: Add easyengine and behat to PATH
                 run: |
-                    cd ${{ github.workspace }}/easyengine
-                    php -dphar.readonly=0 utils/make-phar.php easyengine.phar
-                    mv easyengine.phar /usr/local/bin/ee
-                    chmod +x /usr/local/bin/ee
-                    echo "EasyEngine phar is now installed"
-                    cd ${{ github.workspace }}
+                    echo "PATH=\$PATH:${{ github.workspace }}/easyengine/bin" >> $GITHUB_ENV
+                    echo "PATH=\$PATH:${{ github.workspace }}/easyengine/vendor/bin" >> $GITHUB_ENV
             -   name: Run behat tests
                 run: |
                     cd ${{ github.workspace }}/${{ steps.split.outputs.REPO }}
-                    ${{ github.workspace }}/easyengine/vendor/bin/behat --strict --no-interaction --no-colors --format=progress
+                    behat --strict --no-interaction --no-colors --format=progress
                     cd -
