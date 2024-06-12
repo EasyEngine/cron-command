@@ -102,5 +102,5 @@ jobs:
                     cd ${{ github.workspace }}/easyengine
                     composer dump-autoload --no-interaction
                     cd ${{ github.workspace }}/${{ steps.split.outputs.REPO }}
-                    behat --strict --no-interaction --no-colors --format=progress
+                    sudo ${{ github.workspace }}/easyengine/vendor/bin/behat --strict --no-interaction --no-colors --format=progress
                     cd -
