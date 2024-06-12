@@ -49,6 +49,11 @@ jobs:
                     coverage: none
                     tools: composer
                     extensions: pcntl, curl, sqlite3, zip, dom, mbstring, json
+            -   name: Print PHP version and Modules
+                run: |
+                    php -v
+                    php -m
+                    composer -V
 
             -   name: Install composer dependencies
                 run: |
@@ -70,8 +75,8 @@ jobs:
 
             -   name: Add easyengine and behat to PATH
                 run: |
-                    echo "PATH=\$PATH:${{ github.workspace }}/easyengine/bin" >> $GITHUB_ENV
-                    echo "PATH=\$PATH:${{ github.workspace }}/easyengine/vendor/bin" >> $GITHUB_ENV
+                    echo "${{ github.workspace }}/easyengine/bin" >> $GITHUB_PATH
+                    echo "${{ github.workspace }}/easyengine/vendor/bin" >> $GITHUB_PATH
             -   name: Run behat tests
                 run: |
                     cd ${{ github.workspace }}/${{ steps.split.outputs.REPO }}
