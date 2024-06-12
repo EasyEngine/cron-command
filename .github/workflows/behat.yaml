@@ -58,9 +58,9 @@ jobs:
             -   name: Install composer dependencies
                 run: |
                     cd easyengine
-                    composer install --no-interaction --no-progress --no-suggest --prefer-source
+                    composer install --no-interaction --no-progress --no-suggest --prefer-dist
                     cd ${{ github.workspace }}/${{ steps.split.outputs.REPO }}
-                    composer install --no-interaction --no-progress --no-suggest --prefer-source
+                    composer install --no-interaction --no-progress --no-suggest --prefer-dist
                     cd ${{ github.workspace }}
 
             -   name: Replace easyengine dependency with local path
@@ -71,6 +71,26 @@ jobs:
                     ln -s $(pwd)/${{ steps.split.outputs.REPO }} easyengine/vendor/${{ steps.split.outputs.OWNER }}/${{ steps.split.outputs.REPO }}
                     cd easyengine
                     composer dump-autoload
+                    cd ${{ github.workspace }}
+
+            -   name: Update docker
+                run: |
+                    sudo apt purge nginx nginx-common docker docker-engine docker.io docker-ce containerd runc
+                    curl -fsSL https://get.docker.com/ | sudo bash
+                    sudo systemctl restart docker.service
+
+            -   name: Install docker-compose
+                run: |
+                    sudo curl -L https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+                    sudo chmod +x /usr/local/bin/docker-compose
+
+            -   name: build easyengine phar
+                run: |
+                    cd ${{ github.workspace }}/easyengine
+                    composer dump-autoload --optimize --no-dev --no-interaction
+                    php -dphar.readonly=0 utils/make-phar.php easyengine.phar
+                    mv easyengine.phar /usr/local/bin/ee
+                    chmod +x /usr/local/bin/ee
                     cd ${{ github.workspace }}
 
             -   name: Add easyengine and behat to PATH
