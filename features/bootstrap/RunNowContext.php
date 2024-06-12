@@ -7,7 +7,7 @@ use Behat\Gherkin\Node\TableNode;
 
 
 /**
- * Defines behat context for ``ee cron delete``.
+ * Defines behat context for ``ee cron run-now``.
  */
 class RunNowContext implements Context
 {

@@ -24,3 +24,9 @@ default:
       contexts:
         - "SharedContext"
         - "RunNowContext"
+    update:
+      paths:
+        - "%paths.base%/features/update.feature"
+      contexts:
+        - "SharedContext"
+        - "UpdateContext"
