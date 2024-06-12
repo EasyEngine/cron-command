@@ -23,11 +23,11 @@ jobs:
                 id: split
                 run: |
                     IFS='/' read -r owner repo <<< "${{ github.repository }}"
-                    echo "OWNER='$owner'" >> $GITHUB_ENV
-                    echo "REPO='$repo'" >> $GITHUB_ENV
-                    echo "OWNER_REPO='$owner_$repo'" >> $GITHUB_ENV
-                    echo "REPO='$repo'" >> $GITHUB_OUTPUT
-                    echo "OWNER='$owner'" >> $GITHUB_OUTPUT
+                    echo "OWNER=$owner" >> $GITHUB_ENV
+                    echo "REPO=$repo" >> $GITHUB_ENV
+                    echo "OWNER_REPO=$owner\_$repo" >> $GITHUB_ENV
+                    echo "REPO=$repo" >> $GITHUB_OUTPUT
+                    echo "OWNER=$owner" >> $GITHUB_OUTPUT
             -   name: Checkout EasyEngine repository
                 uses: actions/checkout@v4
                 with:
@@ -54,30 +54,22 @@ jobs:
                 run: |
                     cd easyengine
                     composer install --no-interaction --no-progress --no-suggest --prefer-source
-                    cd -
-
-                    cd ${{ steps.split.outputs.REPO }}
+                    cd ${{ github.workspace }}/${{ steps.split.outputs.REPO }}
                     composer install --no-interaction --no-progress --no-suggest --prefer-source
-                    cd -
+                    cd ${{ github.workspace }}
 
             -   name: Replace easyengine dependency with local path
                 run: |
+                    cd ${{ github.workspace }}
                     rm -rf easyengine/vendor/${{ steps.split.outputs.OWNER }}/${{ steps.split.outputs.REPO }}
                     mkdir -p easyengine/vendor/${{ steps.split.outputs.OWNER }}
                     ln -s $(pwd)/${{ steps.split.outputs.REPO }} easyengine/vendor/${{ steps.split.outputs.OWNER }}/${{ steps.split.outputs.REPO }}
                     cd easyengine
                     composer dump-autoload
-                    cd -
-
-            -   name: Add behat and easyengine to PATH
-                run: |
-                    # Add behat to PATH
-                    echo "::add-path::$(pwd)/easyengine/vendor/bin"
-                    # Add easyengine's /bin/ee to PATH
-                    echo "::add-path::$(pwd)/easyengine/bin"
+                    cd ${{ github.workspace }}
 
             -   name: Run behat tests
                 run: |
-                    cd ${{ steps.split.outputs.REPO }}
-                    ../easyengine/vendor/bin/behat --strict --no-interaction --no-colors --format=progress
+                    cd ${{ github.workspace }}/${{ steps.split.outputs.REPO }}
+                    ${{ github.workspace }}/easyengine/vendor/bin/behat --strict --no-interaction --no-colors --format=progress
                     cd -
