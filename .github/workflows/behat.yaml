@@ -1,0 +1,83 @@
+on:
+    push:
+        branches:
+            - master
+            - develop
+            - tests/behat
+    pull_request:
+        branches:
+            - master
+            - develop
+    workflow_dispatch:
+name: Run behat tests to verify changes
+jobs:
+    behat:
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                #php: [ 8.1, 8.2, 8.3 ]
+                php: [ 8.3 ]
+        steps:
+            -   name: Split repository name to get owner and repository name
+                id: split
+                run: |
+                    IFS='/' read -r owner repo <<< "${{ github.repository }}"
+                    echo "OWNER='$owner'" >> $GITHUB_ENV
+                    echo "REPO='$repo'" >> $GITHUB_ENV
+                    echo "OWNER_REPO='$owner_$repo'" >> $GITHUB_ENV
+                    echo "REPO='$repo'" >> $GITHUB_OUTPUT
+                    echo "OWNER='$owner'" >> $GITHUB_OUTPUT
+            -   name: Checkout EasyEngine repository
+                uses: actions/checkout@v4
+                with:
+                    repository: EasyEngine/easyengine
+                    path: easyengine
+                    lfs: true
+                    recursive: true
+            -   name: Checkout This repository
+                uses: actions/checkout@v4
+                with:
+                    repository: ${{ github.repository }}
+                    path: ${{ steps.split.outputs.REPO }}
+                    lfs: true
+                    recursive: true
+
+            -   uses: shivammathur/setup-php@v2
+                with:
+                    php-version: '${{ matrix.php }}'
+                    coverage: none
+                    tools: composer
+                    extensions: pcntl, curl, sqlite3, zip, dom, mbstring, json
+
+            -   name: Install composer dependencies
+                run: |
+                    cd easyengine
+                    composer install --no-interaction --no-progress --no-suggest --prefer-source
+                    cd -
+
+                    cd ${{ steps.split.outputs.REPO }}
+                    composer install --no-interaction --no-progress --no-suggest --prefer-source
+                    cd -
+
+            -   name: Replace easyengine dependency with local path
+                run: |
+                    rm -rf easyengine/vendor/${{ steps.split.outputs.OWNER }}/${{ steps.split.outputs.REPO }}
+                    mkdir -p easyengine/vendor/${{ steps.split.outputs.OWNER }}
+                    ln -s $(pwd)/${{ steps.split.outputs.REPO }} easyengine/vendor/${{ steps.split.outputs.OWNER }}/${{ steps.split.outputs.REPO }}
+                    cd easyengine
+                    composer dump-autoload
+                    cd -
+
+            -   name: Add behat and easyengine to PATH
+                run: |
+                    # Add behat to PATH
+                    echo "::add-path::$(pwd)/easyengine/vendor/bin"
+                    # Add easyengine's /bin/ee to PATH
+                    echo "::add-path::$(pwd)/easyengine/bin"
+
+            -   name: Run behat tests
+                run: |
+                    cd ${{ steps.split.outputs.REPO }}
+                    ../easyengine/vendor/bin/behat --strict --no-interaction --no-colors --format=progress
+                    cd -
