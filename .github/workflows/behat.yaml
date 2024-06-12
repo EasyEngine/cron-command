@@ -99,6 +99,8 @@ jobs:
                     echo "${{ github.workspace }}/easyengine/vendor/bin" >> $GITHUB_PATH
             -   name: Run behat tests
                 run: |
+                    cd ${{ github.workspace }}/easyengine
+                    composer dump-autoload --no-interaction
                     cd ${{ github.workspace }}/${{ steps.split.outputs.REPO }}
                     behat --strict --no-interaction --no-colors --format=progress
                     cd -
