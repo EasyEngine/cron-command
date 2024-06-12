@@ -34,14 +34,14 @@ jobs:
                     repository: EasyEngine/easyengine
                     path: easyengine
                     lfs: true
-                    recursive: true
+                    submodules: true
             -   name: Checkout This repository
                 uses: actions/checkout@v4
                 with:
                     repository: ${{ github.repository }}
                     path: ${{ steps.split.outputs.REPO }}
                     lfs: true
-                    recursive: true
+                    submodules: true
 
             -   uses: shivammathur/setup-php@v2
                 with:
@@ -102,5 +102,5 @@ jobs:
                     cd ${{ github.workspace }}/easyengine
                     composer dump-autoload --no-interaction
                     cd ${{ github.workspace }}/${{ steps.split.outputs.REPO }}
-                    sudo ${{ github.workspace }}/easyengine/vendor/bin/behat --strict --no-interaction --no-colors --format=progress
+                    sudo ${{ github.workspace }}/easyengine/vendor/bin/behat --strict --no-interaction --no-colors
                     cd -
