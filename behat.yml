@@ -1,0 +1,32 @@
+default:
+  suites:
+    list:
+      paths:
+        - "%paths.base%/features/list.feature"
+      contexts:
+        - "SharedContext"
+        - "ListContext"
+    create:
+      paths:
+        - "%paths.base%/features/create.feature"
+      contexts:
+        - "SharedContext"
+        - "CreateContext"
+    delete:
+      paths:
+        - "%paths.base%/features/delete.feature"
+      contexts:
+        - "SharedContext"
+        - "DeleteContext"
+    run-now:
+      paths:
+        - "%paths.base%/features/run-now.feature"
+      contexts:
+        - "SharedContext"
+        - "RunNowContext"
+    update:
+      paths:
+        - "%paths.base%/features/update.feature"
+      contexts:
+        - "SharedContext"
+        - "UpdateContext"

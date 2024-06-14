@@ -1,0 +1,106 @@
+on:
+    push:
+        branches:
+            - master
+            - develop
+            - tests/behat
+    pull_request:
+        branches:
+            - master
+            - develop
+    workflow_dispatch:
+name: Run behat tests to verify changes
+jobs:
+    behat:
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                #php: [ 8.1, 8.2, 8.3 ]
+                php: [ 8.3 ]
+        steps:
+            -   name: Split repository name to get owner and repository name
+                id: split
+                run: |
+                    IFS='/' read -r owner repo <<< "${{ github.repository }}"
+                    echo "OWNER=$owner" >> $GITHUB_ENV
+                    echo "REPO=$repo" >> $GITHUB_ENV
+                    echo "OWNER_REPO=$owner\_$repo" >> $GITHUB_ENV
+                    echo "REPO=$repo" >> $GITHUB_OUTPUT
+                    echo "OWNER=$owner" >> $GITHUB_OUTPUT
+            -   name: Checkout EasyEngine repository
+                uses: actions/checkout@v4
+                with:
+                    repository: EasyEngine/easyengine
+                    path: easyengine
+                    lfs: true
+                    submodules: true
+            -   name: Checkout This repository
+                uses: actions/checkout@v4
+                with:
+                    repository: ${{ github.repository }}
+                    path: ${{ steps.split.outputs.REPO }}
+                    lfs: true
+                    submodules: true
+
+            -   uses: shivammathur/setup-php@v2
+                with:
+                    php-version: '${{ matrix.php }}'
+                    coverage: none
+                    tools: composer
+                    extensions: pcntl, curl, sqlite3, zip, dom, mbstring, json
+            -   name: Print PHP version and Modules
+                run: |
+                    php -v
+                    php -m
+                    composer -V
+
+            -   name: Install composer dependencies
+                run: |
+                    cd easyengine
+                    composer install --no-interaction --no-progress --no-suggest --prefer-dist
+                    cd ${{ github.workspace }}/${{ steps.split.outputs.REPO }}
+                    composer install --no-interaction --no-progress --no-suggest --prefer-dist
+                    cd ${{ github.workspace }}
+
+            -   name: Replace easyengine dependency with local path
+                run: |
+                    cd ${{ github.workspace }}
+                    rm -rf easyengine/vendor/${{ steps.split.outputs.OWNER }}/${{ steps.split.outputs.REPO }}
+                    mkdir -p easyengine/vendor/${{ steps.split.outputs.OWNER }}
+                    ln -s $(pwd)/${{ steps.split.outputs.REPO }} easyengine/vendor/${{ steps.split.outputs.OWNER }}/${{ steps.split.outputs.REPO }}
+                    cd easyengine
+                    composer dump-autoload
+                    cd ${{ github.workspace }}
+
+            -   name: Update docker
+                run: |
+                    sudo apt purge nginx nginx-common docker docker-engine docker.io docker-ce containerd runc
+                    curl -fsSL https://get.docker.com/ | sudo bash
+                    sudo systemctl restart docker.service
+
+            -   name: Install docker-compose
+                run: |
+                    sudo curl -L https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+                    sudo chmod +x /usr/local/bin/docker-compose
+
+            -   name: build easyengine phar
+                run: |
+                    cd ${{ github.workspace }}/easyengine
+                    composer dump-autoload --optimize --no-dev --no-interaction
+                    php -dphar.readonly=0 utils/make-phar.php easyengine.phar
+                    mv easyengine.phar /usr/local/bin/ee
+                    chmod +x /usr/local/bin/ee
+                    cd ${{ github.workspace }}
+
+            -   name: Add easyengine and behat to PATH
+                run: |
+                    echo "${{ github.workspace }}/easyengine/bin" >> $GITHUB_PATH
+                    echo "${{ github.workspace }}/easyengine/vendor/bin" >> $GITHUB_PATH
+            -   name: Run behat tests
+                run: |
+                    cd ${{ github.workspace }}/easyengine
+                    composer dump-autoload --no-interaction
+                    cd ${{ github.workspace }}/${{ steps.split.outputs.REPO }}
+                    sudo ${{ github.workspace }}/easyengine/vendor/bin/behat --strict --no-interaction --no-colors
+                    cd -
