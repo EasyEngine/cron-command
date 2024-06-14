@@ -228,6 +228,12 @@ class Cron_Command extends EE_Command {
 			EE::error( 'You should specify at least one of - site, command, schedule or user to update' );
 		}
 		if ( $site ) {
+			if ( 'host' !== $site ) {
+				$site_info = \EE\Site\Utils\get_site_info( [ $site ] );
+				if ( ! EE_DOCKER::service_exists( 'php', $site_info['site_fs_path'] ) ) {
+					EE::error( $site . ' does not have PHP container.' );
+				}
+			}
 			$data_to_update['site_url'] = $site;
 		}
 		if ( $user ) {
