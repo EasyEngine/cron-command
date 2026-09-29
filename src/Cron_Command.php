@@ -82,10 +82,7 @@ class Cron_Command extends EE_Command {
 		$user     = EE\Utils\get_flag_value( $assoc_args, 'user' );
 
 		if ( 'host' !== $args[0] ) {
-			$site_info = \EE\Site\Utils\get_site_info( $args );
-			if ( ! EE_DOCKER::service_exists( 'php', $site_info['site_fs_path'] ) ) {
-				EE::error( $site . ' does not have PHP container.' );
-			}
+			$this->validate_site( $site );
 			if ( $user === null ) {
 				$user = 'www-data';
 			}
@@ -149,6 +146,21 @@ class Cron_Command extends EE_Command {
 		}
 
 		return $schedule;
+	}
+
+	/**
+	 * Ensures a site exists, is enabled and has a php container to run cron jobs in.
+	 *
+	 * @param string $site Site name.
+	 *
+	 * @throws \EE\ExitException
+	 */
+	private function validate_site( $site ) {
+
+		$site_info = \EE\Site\Utils\get_site_info( [ $site ] );
+		if ( ! EE_DOCKER::service_exists( 'php', $site_info['site_fs_path'] ) ) {
+			EE::error( $site . ' does not have PHP container.' );
+		}
 	}
 
 	/**
@@ -236,7 +248,17 @@ class Cron_Command extends EE_Command {
 		if ( ! $site && ! $command && ! $schedule && ! $user ) {
 			EE::error( 'You should specify at least one of - site, command, schedule or user to update' );
 		}
+
+		$cron = Cron::find( $cron_id );
+		if ( ! $cron ) {
+			EE::error( 'Unable to find cron with id ' . $cron_id );
+		}
+
 		if ( $site ) {
+			$site = EE\Utils\remove_trailing_slash( $site );
+			if ( 'host' !== $site ) {
+				$this->validate_site( $site );
+			}
 			$data_to_update['site_url'] = $site;
 		}
 		if ( $user ) {
