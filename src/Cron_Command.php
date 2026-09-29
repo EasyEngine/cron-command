@@ -91,17 +91,7 @@ class Cron_Command extends EE_Command {
 			}
 		}
 
-		if ( '@' !== substr( trim( $schedule ), 0, 1 ) ) {
-			// Filter out spaces but not 0. 'trim' filter removes 0 as well.
-			$schedule_length = count( array_filter( explode( ' ', $schedule ), function ( $value ) {
-				return preg_match( '#\S#', $value );
-			} ) );
-			if ( 5 !== $schedule_length ) {
-				EE::error( 'Schedule format should be same as Linux cron or schedule helper syntax(Check help for this)' );
-			}
-			$schedule = '0 ' . trim( $schedule );
-		}
-
+		$schedule = $this->validate_schedule( $schedule );
 		$this->validate_command( $command );
 		$command = $this->add_sh_c_wrapper( $command );
 
@@ -140,6 +130,25 @@ class Cron_Command extends EE_Command {
 		if ( strpos( $command, '#' ) !== false ) {
 			EE::error( 'EasyEngine does not support commands with #' );
 		}
+	}
+
+	/**
+	 * Ensures a schedule is valid for ofelia, which otherwise silently skips the job.
+	 *
+	 * @param string $schedule Schedule passed to the command.
+	 *
+	 * @throws \EE\ExitException
+	 *
+	 * @return string Schedule to store.
+	 */
+	private function validate_schedule( $schedule ) {
+
+		$schedule = EE\Cron\Utils\validate_schedule( $schedule );
+		if ( false === $schedule ) {
+			EE::error( 'Schedule format should be same as Linux cron or schedule helper syntax(Check help for this)' );
+		}
+
+		return $schedule;
 	}
 
 	/**
@@ -239,13 +248,7 @@ class Cron_Command extends EE_Command {
 			$data_to_update['command'] = $command;
 		}
 		if ( $schedule ) {
-			if ( '@' !== substr( trim( $schedule ), 0, 1 ) ) {
-				$schedule_length = strlen( implode( explode( ' ', trim( $schedule ) ) ) );
-				if ( 5 !== $schedule_length ) {
-					EE::error( 'Schedule format should be same as Linux cron or schedule helper syntax(Check help for this)' );
-				}
-			}
-			$data_to_update['schedule'] = $schedule;
+			$data_to_update['schedule'] = $this->validate_schedule( $schedule );
 		}
 
 		Cron::update( [ 'id' => $cron_id ], $data_to_update );

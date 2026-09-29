@@ -29,6 +29,7 @@ function generate_cron_config() {
 		$id             = preg_replace( '/--+/', '-', $id );
 		$cron->job_type = $job_type;
 		$cron->id       = $id;
+		$cron->schedule = normalize_schedule( $cron->schedule );
 
 		if ( 'host' !== $cron->site_url ) {
 			$cron->container = site_php_container( $cron->site_url );
@@ -38,6 +39,94 @@ function generate_cron_config() {
 	$me = new \Mustache_Engine();
 
 	return $me->render( $config_template, $crons );
+}
+
+/**
+ * Validates a schedule given on the command line.
+ *
+ * @param string $schedule Five-field Linux cron expression or schedule helper (@daily, @every 10m, ...).
+ *
+ * @return string|false Schedule to store, or false if it is invalid.
+ */
+function validate_schedule( $schedule ) {
+
+	$schedule = trim( (string) $schedule );
+
+	if ( '@' === substr( $schedule, 0, 1 ) ) {
+		$descriptors = [ '@yearly', '@annually', '@monthly', '@weekly', '@daily', '@midnight', '@hourly' ];
+		$duration    = '(\d+(\.\d*)?|\.\d+)(ns|us|µs|ms|s|m|h)';
+
+		return ( in_array( $schedule, $descriptors, true ) || preg_match( "/^@every ($duration)+$/u", $schedule ) ) ? $schedule : false;
+	}
+
+	$fields = preg_split( '/\s+/', $schedule );
+	$months = array_combine( [ 'jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec' ], range( 1, 12 ) );
+	$days   = array_flip( [ 'sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat' ] );
+	// Minute, hour, day of month, month and day of week with ofelia's bounds (Sunday is 0 only).
+	$ranges = [ [ 0, 59, [] ], [ 0, 23, [] ], [ 1, 31, [] ], [ 1, 12, $months ], [ 0, 6, $days ] ];
+
+	if ( 5 !== count( $fields ) ) {
+		return false;
+	}
+
+	foreach ( $fields as $i => $field ) {
+		if ( ! is_valid_cron_field( $field, $ranges[ $i ][0], $ranges[ $i ][1], $ranges[ $i ][2] ) ) {
+			return false;
+		}
+	}
+
+	return normalize_schedule( $schedule );
+}
+
+/**
+ * Adds the seconds field ofelia expects to a five-field cron expression, so it is not read as seconds.
+ * Six-field expressions and schedule helpers are returned as they are.
+ *
+ * @param string $schedule Schedule from the command line or the DB.
+ *
+ * @return string
+ */
+function normalize_schedule( $schedule ) {
+
+	$schedule = trim( (string) $schedule );
+
+	if ( '' !== $schedule && '@' !== $schedule[0] && 5 === count( preg_split( '/\s+/', $schedule ) ) ) {
+		return '0 ' . $schedule;
+	}
+
+	return $schedule;
+}
+
+/**
+ * Checks one field of a cron expression: lists of `*`, `?`, values or ranges, each with an optional step.
+ *
+ * @param string $field Field to check.
+ * @param int    $min   Lowest allowed value.
+ * @param int    $max   Highest allowed value.
+ * @param array  $names Allowed names (lowercase) mapped to their values.
+ *
+ * @return bool
+ */
+function is_valid_cron_field( $field, $min, $max, array $names ) {
+
+	foreach ( explode( ',', strtolower( $field ) ) as $part ) {
+		if ( ! preg_match( '#^(?:[*?]|(\w+)(?:-(\w+))?)(?:/0*[1-9][0-9]*)?$#', $part, $matches ) ) {
+			return false;
+		}
+		// Empty for `*` and `?`, else the start and optional end of the range.
+		$bounds = array_slice( $matches, 1 );
+		foreach ( $bounds as $key => $bound ) {
+			$bounds[ $key ] = isset( $names[ $bound ] ) ? $names[ $bound ] : ( ctype_digit( $bound ) ? (int) $bound : -1 );
+			if ( $bounds[ $key ] < $min || $bounds[ $key ] > $max ) {
+				return false;
+			}
+		}
+		if ( 2 === count( $bounds ) && $bounds[0] > $bounds[1] ) {
+			return false;
+		}
+	}
+
+	return true;
 }
 
 /**
