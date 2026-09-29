@@ -5,13 +5,13 @@ command = true
 {{#.}}
 
 [{{job_type}} "{{id}}"]
-schedule = {{schedule}}
+schedule = {{{schedule}}}
 {{#container}}
-container = {{container}}
+container = {{{container}}}
 {{/container}}
 command = {{{command}}}
 {{#user}}
-user = {{user}}
+user = {{{user}}}
 {{/user}}
 no-overlap = true
 {{/.}}

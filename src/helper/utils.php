@@ -157,8 +157,7 @@ function is_valid_cron_field( $field, $min, $max, array $names ) {
 
 /**
  * Checks that a value can be written to ofelia's INI config without a parse error, which would stop the scheduler.
- * Mirrors gcfg: `"` toggles quoting, `\` may only escape `"` (and `\`, `n`, `t`, `b` inside quotes), and an
- * unquoted `;` or `#` starts a comment.
+ * Mirrors gcfg: the value must be UTF-8 without NUL, `"` toggles quoting, `\` may only escape `"` (and `\`, `n`, `t`, `b` inside quotes), and an unquoted `;` or `#` starts a comment.
  *
  * @param string $value Value to check.
  *
@@ -170,7 +169,7 @@ function is_ini_safe( $value ) {
 	$quoted = false;
 	$length = strlen( $value );
 
-	if ( preg_match( '/[\r\n]/', $value ) ) {
+	if ( preg_match( '/[\r\n\0]/', $value ) || ! preg_match( '//u', $value ) ) {
 		return false;
 	}
 

@@ -138,7 +138,7 @@ class Cron_Command extends EE_Command {
 			EE::error( 'EasyEngine does not support commands with #' );
 		}
 		if ( ! EE\Cron\Utils\is_ini_safe( $command ) ) {
-			EE::error( 'EasyEngine does not support commands with an unbalanced double quote or a backslash that does not escape a double quote.' );
+			EE::error( 'EasyEngine does not support commands with an unbalanced double quote, a backslash that does not escape a double quote, or invalid UTF-8.' );
 		}
 	}
 
@@ -177,7 +177,7 @@ class Cron_Command extends EE_Command {
 	}
 
 	/**
-	 * Ensures a user can be written to the scheduler config.
+	 * Ensures a user is a docker exec user (name or uid, optionally with a group), which is safe in the scheduler config and in run-now's shell command.
 	 *
 	 * @param string $user User passed to the command.
 	 *
@@ -185,7 +185,7 @@ class Cron_Command extends EE_Command {
 	 */
 	private function validate_user( $user ) {
 
-		if ( ! EE\Cron\Utils\is_ini_safe( $user ) ) {
+		if ( ! preg_match( '/^[A-Za-z0-9_][A-Za-z0-9_.-]*(:[A-Za-z0-9_][A-Za-z0-9_.-]*)?$/', $user ) ) {
 			EE::error( 'Invalid user: ' . $user );
 		}
 	}
