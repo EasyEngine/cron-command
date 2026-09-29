@@ -66,7 +66,15 @@ function validate_schedule( $schedule ) {
 	if ( '@' === substr( $schedule, 0, 1 ) ) {
 		$descriptors = [ '@yearly', '@annually', '@monthly', '@weekly', '@daily', '@midnight', '@hourly' ];
 		$duration    = '([0-9]+(?:\.[0-9]*)?|\.[0-9]+)(ns|us|µs|ms|s|m|h)';
-		$units       = [ 'ns' => 1, 'us' => 1e3, 'µs' => 1e3, 'ms' => 1e6, 's' => 1e9, 'm' => 6e10, 'h' => 3.6e12 ];
+		$units       = [
+			'ns' => 1,
+			'us' => 1e3,
+			'µs' => 1e3,
+			'ms' => 1e6,
+			's'  => 1e9,
+			'm'  => 6e10,
+			'h'  => 3.6e12,
+		];
 
 		if ( in_array( $schedule, $descriptors, true ) ) {
 			return $schedule;
@@ -84,7 +92,8 @@ function validate_schedule( $schedule ) {
 		return $nanoseconds < 9.2e18 ? $schedule : false;
 	}
 
-	$fields = preg_split( '/\s+/', $schedule );
+	// Spaces and tabs only: a stored line break would keep the job out of the config.
+	$fields = preg_split( '/[ \t]+/', $schedule );
 	$months = array_combine( [ 'jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec' ], range( 1, 12 ) );
 	$days   = array_flip( [ 'sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat' ] );
 	// Minute, hour, day of month, month and day of week with ofelia's bounds (Sunday is 0 only).
