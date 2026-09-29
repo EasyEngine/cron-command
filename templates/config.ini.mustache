@@ -1,4 +1,7 @@
-
+{{! ofelia exits with "unable to start a empty scheduler" when no job registers, so always keep one. }}
+[job-local "ee-keepalive"]
+schedule = @yearly
+command = true
 {{#.}}
 
 [{{job_type}} "{{id}}"]
