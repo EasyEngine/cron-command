@@ -11,6 +11,11 @@ use function EE\Site\Utils\auto_site_name;
 class Cron_Command extends EE_Command {
 
 	/**
+	 * ofelia runs host jobs (job-local) inside the scheduler container and has no user option for them.
+	 */
+	const HOST_USER_ERROR = '--user is not supported for host cron jobs: they run as root in the cron scheduler container.';
+
+	/**
 	 * Adds a cron job to run a command at specific interval etc.
 	 *
 	 * ## OPTIONS
@@ -25,7 +30,7 @@ class Cron_Command extends EE_Command {
 	 * : Time to schedule. Format is same as Linux cron.
 	 *
 	 * [--user=<user>]
-	 * : User to execute command as.
+	 * : User to execute command as. Not supported for host cron jobs.
 	 *
 	 * We also have helper to easily specify scheduling format:
 	 *
@@ -81,27 +86,19 @@ class Cron_Command extends EE_Command {
 		$schedule = EE\Utils\get_flag_value( $assoc_args, 'schedule' );
 		$user     = EE\Utils\get_flag_value( $assoc_args, 'user' );
 
-		if ( 'host' !== $args[0] ) {
-			$site_info = \EE\Site\Utils\get_site_info( $args );
-			if ( ! EE_DOCKER::service_exists( 'php', $site_info['site_fs_path'] ) ) {
-				EE::error( $site . ' does not have PHP container.' );
+		if ( 'host' === $args[0] ) {
+			if ( null !== $user ) {
+				EE::error( self::HOST_USER_ERROR );
 			}
+		} else {
+			$this->validate_site( $site );
 			if ( $user === null ) {
 				$user = 'www-data';
 			}
+			$this->validate_user( $user );
 		}
 
-		if ( '@' !== substr( trim( $schedule ), 0, 1 ) ) {
-			// Filter out spaces but not 0. 'trim' filter removes 0 as well.
-			$schedule_length = count( array_filter( explode( ' ', $schedule ), function ( $value ) {
-				return preg_match( '#\S#', $value );
-			} ) );
-			if ( 5 !== $schedule_length ) {
-				EE::error( 'Schedule format should be same as Linux cron or schedule helper syntax(Check help for this)' );
-			}
-			$schedule = '0 ' . trim( $schedule );
-		}
-
+		$schedule = $this->validate_schedule( $schedule );
 		$this->validate_command( $command );
 		$command = $this->add_sh_c_wrapper( $command );
 
@@ -140,6 +137,57 @@ class Cron_Command extends EE_Command {
 		if ( strpos( $command, '#' ) !== false ) {
 			EE::error( 'EasyEngine does not support commands with #' );
 		}
+		if ( ! EE\Cron\Utils\is_ini_safe( $command ) ) {
+			EE::error( 'EasyEngine does not support commands with an unbalanced double quote, a backslash that does not escape a double quote, or invalid UTF-8.' );
+		}
+	}
+
+	/**
+	 * Ensures a schedule is valid for ofelia, which otherwise silently skips the job.
+	 *
+	 * @param string $schedule Schedule passed to the command.
+	 *
+	 * @throws \EE\ExitException
+	 *
+	 * @return string Schedule to store.
+	 */
+	private function validate_schedule( $schedule ) {
+
+		$schedule = EE\Cron\Utils\validate_schedule( $schedule );
+		if ( false === $schedule ) {
+			EE::error( 'Schedule format should be same as Linux cron or schedule helper syntax(Check help for this)' );
+		}
+
+		return $schedule;
+	}
+
+	/**
+	 * Ensures a site exists, is enabled and has a php container to run cron jobs in.
+	 *
+	 * @param string $site Site name.
+	 *
+	 * @throws \EE\ExitException
+	 */
+	private function validate_site( $site ) {
+
+		$site_info = \EE\Site\Utils\get_site_info( [ $site ] );
+		if ( ! EE_DOCKER::service_exists( 'php', $site_info['site_fs_path'] ) ) {
+			EE::error( $site . ' does not have PHP container.' );
+		}
+	}
+
+	/**
+	 * Ensures a user is a docker exec user (name or uid, optionally with a group), which is safe in the scheduler config and in run-now's shell command.
+	 *
+	 * @param string $user User passed to the command.
+	 *
+	 * @throws \EE\ExitException
+	 */
+	private function validate_user( $user ) {
+
+		if ( ! preg_match( '/^[A-Za-z0-9_][A-Za-z0-9_.-]*(:[A-Za-z0-9_][A-Za-z0-9_.-]*)?$/', $user ) ) {
+			EE::error( 'Invalid user: ' . $user );
+		}
 	}
 
 	/**
@@ -175,7 +223,7 @@ class Cron_Command extends EE_Command {
 	 * : Time to schedule. Format is same as Linux cron.
 	 *
 	 * [--user=<user>]
-	 * : User to execute command as.
+	 * : User to execute command as. Not supported for host cron jobs.
 	 *
 	 * We also have helper to easily specify scheduling format:
 	 *
@@ -227,25 +275,44 @@ class Cron_Command extends EE_Command {
 		if ( ! $site && ! $command && ! $schedule && ! $user ) {
 			EE::error( 'You should specify at least one of - site, command, schedule or user to update' );
 		}
+
+		$cron = Cron::find( $cron_id );
+		if ( ! $cron ) {
+			EE::error( 'Unable to find cron with id ' . $cron_id );
+		}
+
 		if ( $site ) {
+			$site = EE\Utils\remove_trailing_slash( $site );
+			if ( 'host' !== $site ) {
+				$this->validate_site( $site );
+			}
 			$data_to_update['site_url'] = $site;
 		}
-		if ( $user ) {
-			$data_to_update['user'] = $user;
-		}
+
+		// Validate everything before the user warning below, so it isn't printed for an update that then fails.
 		if ( $command ) {
 			$this->validate_command( $command );
 			$command                   = $this->add_sh_c_wrapper( $command );
 			$data_to_update['command'] = $command;
 		}
 		if ( $schedule ) {
-			if ( '@' !== substr( trim( $schedule ), 0, 1 ) ) {
-				$schedule_length = strlen( implode( explode( ' ', trim( $schedule ) ) ) );
-				if ( 5 !== $schedule_length ) {
-					EE::error( 'Schedule format should be same as Linux cron or schedule helper syntax(Check help for this)' );
-				}
+			$data_to_update['schedule'] = $this->validate_schedule( $schedule );
+		}
+
+		// Same user rules as create, applied to the job as it will be after the update.
+		if ( 'host' === ( $site ? $site : $cron->site_url ) ) {
+			if ( null !== $user ) {
+				EE::error( self::HOST_USER_ERROR );
 			}
-			$data_to_update['schedule'] = $schedule;
+			if ( ! empty( $cron->user ) ) {
+				EE::warning( sprintf( 'Host cron jobs run as root in the cron scheduler container, dropping user %s.', $cron->user ) );
+				$data_to_update['user'] = null;
+			}
+		} elseif ( $user ) {
+			$this->validate_user( $user );
+			$data_to_update['user'] = $user;
+		} elseif ( empty( $cron->user ) ) {
+			$data_to_update['user'] = 'www-data';
 		}
 
 		Cron::update( [ 'id' => $cron_id ], $data_to_update );
@@ -296,7 +363,18 @@ class Cron_Command extends EE_Command {
 			EE::error( 'No cron jobs found.' );
 		}
 
- 		EE\Utils\format_items( 'table', $crons, [ 'id', 'site_url', 'user', 'command', 'schedule' ] );
+		$fields = [ 'id', 'site_url', 'user', 'command', 'schedule' ];
+		// Rows as arrays: the formatter reports a model's NULL column (a host job's user) as an invalid field.
+		$rows = array_map( function ( $cron ) use ( $fields ) {
+			$row = [];
+			foreach ( $fields as $field ) {
+				$row[ $field ] = (string) $cron->$field;
+			}
+
+			return $row;
+		}, $crons );
+
+		EE\Utils\format_items( 'table', $rows, $fields );
 	}
 
 	/**
@@ -362,10 +440,5 @@ class Cron_Command extends EE_Command {
 		EE\Cron\Utils\update_cron_config();
 
 		EE::success( 'Deleted cron with id ' . $id );
-
-		$cron_entries = Cron::all();
-		if ( empty( $cron_entries ) ) {
-			EE::exec( 'docker rm -f ' . EE_CRON_SCHEDULER );
-		}
 	}
 }

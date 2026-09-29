@@ -1,14 +1,17 @@
-
+{{! ofelia exits with "unable to start a empty scheduler" when no job registers, so always keep one. }}
+[job-local "ee-keepalive"]
+schedule = @yearly
+command = true
 {{#.}}
 
 [{{job_type}} "{{id}}"]
-schedule = {{schedule}}
+schedule = {{{schedule}}}
 {{#container}}
-container = {{container}}
+container = {{{container}}}
 {{/container}}
 command = {{{command}}}
 {{#user}}
-user = {{user}}
+user = {{{user}}}
 {{/user}}
 no-overlap = true
 {{/.}}
