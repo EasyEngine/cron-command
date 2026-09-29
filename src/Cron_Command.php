@@ -362,10 +362,5 @@ class Cron_Command extends EE_Command {
 		EE\Cron\Utils\update_cron_config();
 
 		EE::success( 'Deleted cron with id ' . $id );
-
-		$cron_entries = Cron::all();
-		if ( empty( $cron_entries ) ) {
-			EE::exec( 'docker rm -f ' . EE_CRON_SCHEDULER );
-		}
 	}
 }
