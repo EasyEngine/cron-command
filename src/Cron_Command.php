@@ -289,6 +289,16 @@ class Cron_Command extends EE_Command {
 			$data_to_update['site_url'] = $site;
 		}
 
+		// Validate everything before the user warning below, so it isn't printed for an update that then fails.
+		if ( $command ) {
+			$this->validate_command( $command );
+			$command                   = $this->add_sh_c_wrapper( $command );
+			$data_to_update['command'] = $command;
+		}
+		if ( $schedule ) {
+			$data_to_update['schedule'] = $this->validate_schedule( $schedule );
+		}
+
 		// Same user rules as create, applied to the job as it will be after the update.
 		if ( 'host' === ( $site ? $site : $cron->site_url ) ) {
 			if ( null !== $user ) {
@@ -303,15 +313,6 @@ class Cron_Command extends EE_Command {
 			$data_to_update['user'] = $user;
 		} elseif ( empty( $cron->user ) ) {
 			$data_to_update['user'] = 'www-data';
-		}
-
-		if ( $command ) {
-			$this->validate_command( $command );
-			$command                   = $this->add_sh_c_wrapper( $command );
-			$data_to_update['command'] = $command;
-		}
-		if ( $schedule ) {
-			$data_to_update['schedule'] = $this->validate_schedule( $schedule );
 		}
 
 		Cron::update( [ 'id' => $cron_id ], $data_to_update );
