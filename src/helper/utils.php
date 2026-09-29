@@ -65,9 +65,23 @@ function validate_schedule( $schedule ) {
 
 	if ( '@' === substr( $schedule, 0, 1 ) ) {
 		$descriptors = [ '@yearly', '@annually', '@monthly', '@weekly', '@daily', '@midnight', '@hourly' ];
-		$duration    = '(\d+(\.\d*)?|\.\d+)(ns|us|µs|ms|s|m|h)';
+		$duration    = '([0-9]+(?:\.[0-9]*)?|\.[0-9]+)(ns|us|µs|ms|s|m|h)';
+		$units       = [ 'ns' => 1, 'us' => 1e3, 'µs' => 1e3, 'ms' => 1e6, 's' => 1e9, 'm' => 6e10, 'h' => 3.6e12 ];
 
-		return ( in_array( $schedule, $descriptors, true ) || preg_match( "/^@every ($duration)+$/u", $schedule ) ) ? $schedule : false;
+		if ( in_array( $schedule, $descriptors, true ) ) {
+			return $schedule;
+		}
+		if ( ! preg_match( "/^@every (?:$duration)+$/u", $schedule ) ) {
+			return false;
+		}
+		// ofelia rejects durations that overflow Go's int64 nanoseconds (about 292 years).
+		preg_match_all( "/$duration/u", substr( $schedule, 7 ), $parts, PREG_SET_ORDER );
+		$nanoseconds = 0;
+		foreach ( $parts as $part ) {
+			$nanoseconds += (float) $part[1] * $units[ $part[2] ];
+		}
+
+		return $nanoseconds < 9.2e18 ? $schedule : false;
 	}
 
 	$fields = preg_split( '/\s+/', $schedule );
@@ -121,7 +135,8 @@ function normalize_schedule( $schedule ) {
 function is_valid_cron_field( $field, $min, $max, array $names ) {
 
 	foreach ( explode( ',', strtolower( $field ) ) as $part ) {
-		if ( ! preg_match( '#^(?:[*?]|(\w+)(?:-(\w+))?)(?:/0*[1-9][0-9]*)?$#', $part, $matches ) ) {
+		// A step past 18 digits overflows ofelia's int parser.
+		if ( ! preg_match( '#^(?:[*?]|(\w+)(?:-(\w+))?)(?:/0*[1-9][0-9]{0,17})?$#', $part, $matches ) ) {
 			return false;
 		}
 		// Empty for `*` and `?`, else the start and optional end of the range.
