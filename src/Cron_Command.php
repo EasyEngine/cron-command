@@ -368,7 +368,7 @@ class Cron_Command extends EE_Command {
 		$rows = array_map( function ( $cron ) use ( $fields ) {
 			$row = [];
 			foreach ( $fields as $field ) {
-				$row[ $field ] = $cron->$field;
+				$row[ $field ] = (string) $cron->$field;
 			}
 
 			return $row;
