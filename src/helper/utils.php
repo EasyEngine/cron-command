@@ -21,24 +21,27 @@ function update_cron_config() {
 function generate_cron_config() {
 
 	$config_template = file_get_contents( __DIR__ . '/../../templates/config.ini.mustache' );
-	$crons           = Cron::all();
+	$jobs            = [];
 
-	foreach ( $crons as &$cron ) {
-		$job_type       = 'host' === $cron->site_url ? 'job-local' : 'job-exec';
-		$id             = $cron->site_url . '-' . preg_replace( '/[^a-zA-Z0-9\@]/', '-', $cron->command ) . '-' . EE\Utils\random_password( 5 );
-		$id             = preg_replace( '/--+/', '-', $id );
-		$cron->job_type = $job_type;
-		$cron->id       = $id;
-		$cron->schedule = normalize_schedule( $cron->schedule );
+	foreach ( Cron::all() as $cron ) {
+		$is_host = 'host' === $cron->site_url;
+		$id      = $cron->site_url . '-' . preg_replace( '/[^a-zA-Z0-9\@]/', '-', $cron->command ) . '-' . EE\Utils\random_password( 5 );
+		$job     = [
+			'job_type'  => $is_host ? 'job-local' : 'job-exec',
+			'id'        => preg_replace( '/--+/', '-', $id ),
+			'schedule'  => normalize_schedule( $cron->schedule ),
+			'command'   => $cron->command,
+			// ofelia refuses to start when a job-local section has a user.
+			'user'      => $is_host ? '' : (string) $cron->user,
+			'container' => $is_host ? '' : site_php_container( $cron->site_url ),
+		];
 
-		if ( 'host' !== $cron->site_url ) {
-			$cron->container = site_php_container( $cron->site_url );
-		}
+		$jobs[] = $job;
 	}
 
 	$me = new \Mustache_Engine();
 
-	return $me->render( $config_template, $crons );
+	return $me->render( $config_template, $jobs );
 }
 
 /**

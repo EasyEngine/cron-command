@@ -11,6 +11,11 @@ use function EE\Site\Utils\auto_site_name;
 class Cron_Command extends EE_Command {
 
 	/**
+	 * ofelia runs host jobs (job-local) inside the scheduler container and has no user option for them.
+	 */
+	const HOST_USER_ERROR = '--user is not supported for host cron jobs: they run as root in the cron scheduler container.';
+
+	/**
 	 * Adds a cron job to run a command at specific interval etc.
 	 *
 	 * ## OPTIONS
@@ -25,7 +30,7 @@ class Cron_Command extends EE_Command {
 	 * : Time to schedule. Format is same as Linux cron.
 	 *
 	 * [--user=<user>]
-	 * : User to execute command as.
+	 * : User to execute command as. Not supported for host cron jobs.
 	 *
 	 * We also have helper to easily specify scheduling format:
 	 *
@@ -81,7 +86,11 @@ class Cron_Command extends EE_Command {
 		$schedule = EE\Utils\get_flag_value( $assoc_args, 'schedule' );
 		$user     = EE\Utils\get_flag_value( $assoc_args, 'user' );
 
-		if ( 'host' !== $args[0] ) {
+		if ( 'host' === $args[0] ) {
+			if ( null !== $user ) {
+				EE::error( self::HOST_USER_ERROR );
+			}
+		} else {
 			$this->validate_site( $site );
 			if ( $user === null ) {
 				$user = 'www-data';
@@ -196,7 +205,7 @@ class Cron_Command extends EE_Command {
 	 * : Time to schedule. Format is same as Linux cron.
 	 *
 	 * [--user=<user>]
-	 * : User to execute command as.
+	 * : User to execute command as. Not supported for host cron jobs.
 	 *
 	 * We also have helper to easily specify scheduling format:
 	 *
@@ -261,9 +270,22 @@ class Cron_Command extends EE_Command {
 			}
 			$data_to_update['site_url'] = $site;
 		}
-		if ( $user ) {
+
+		// Same user rules as create, applied to the job as it will be after the update.
+		if ( 'host' === ( $site ? $site : $cron->site_url ) ) {
+			if ( null !== $user ) {
+				EE::error( self::HOST_USER_ERROR );
+			}
+			if ( ! empty( $cron->user ) ) {
+				EE::warning( sprintf( 'Host cron jobs run as root in the cron scheduler container, dropping user %s.', $cron->user ) );
+				$data_to_update['user'] = null;
+			}
+		} elseif ( $user ) {
 			$data_to_update['user'] = $user;
+		} elseif ( empty( $cron->user ) ) {
+			$data_to_update['user'] = 'www-data';
 		}
+
 		if ( $command ) {
 			$this->validate_command( $command );
 			$command                   = $this->add_sh_c_wrapper( $command );
