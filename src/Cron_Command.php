@@ -362,7 +362,18 @@ class Cron_Command extends EE_Command {
 			EE::error( 'No cron jobs found.' );
 		}
 
- 		EE\Utils\format_items( 'table', $crons, [ 'id', 'site_url', 'user', 'command', 'schedule' ] );
+		$fields = [ 'id', 'site_url', 'user', 'command', 'schedule' ];
+		// Rows as arrays: the formatter reports a model's NULL column (a host job's user) as an invalid field.
+		$rows = array_map( function ( $cron ) use ( $fields ) {
+			$row = [];
+			foreach ( $fields as $field ) {
+				$row[ $field ] = $cron->$field;
+			}
+
+			return $row;
+		}, $crons );
+
+		EE\Utils\format_items( 'table', $rows, $fields );
 	}
 
 	/**
