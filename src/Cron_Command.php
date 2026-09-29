@@ -95,6 +95,7 @@ class Cron_Command extends EE_Command {
 			if ( $user === null ) {
 				$user = 'www-data';
 			}
+			$this->validate_user( $user );
 		}
 
 		$schedule = $this->validate_schedule( $schedule );
@@ -136,6 +137,9 @@ class Cron_Command extends EE_Command {
 		if ( strpos( $command, '#' ) !== false ) {
 			EE::error( 'EasyEngine does not support commands with #' );
 		}
+		if ( ! EE\Cron\Utils\is_ini_safe( $command ) ) {
+			EE::error( 'EasyEngine does not support commands with an unbalanced double quote or a backslash that does not escape a double quote.' );
+		}
 	}
 
 	/**
@@ -169,6 +173,20 @@ class Cron_Command extends EE_Command {
 		$site_info = \EE\Site\Utils\get_site_info( [ $site ] );
 		if ( ! EE_DOCKER::service_exists( 'php', $site_info['site_fs_path'] ) ) {
 			EE::error( $site . ' does not have PHP container.' );
+		}
+	}
+
+	/**
+	 * Ensures a user can be written to the scheduler config.
+	 *
+	 * @param string $user User passed to the command.
+	 *
+	 * @throws \EE\ExitException
+	 */
+	private function validate_user( $user ) {
+
+		if ( ! EE\Cron\Utils\is_ini_safe( $user ) ) {
+			EE::error( 'Invalid user: ' . $user );
 		}
 	}
 
@@ -281,6 +299,7 @@ class Cron_Command extends EE_Command {
 				$data_to_update['user'] = null;
 			}
 		} elseif ( $user ) {
+			$this->validate_user( $user );
 			$data_to_update['user'] = $user;
 		} elseif ( empty( $cron->user ) ) {
 			$data_to_update['user'] = 'www-data';

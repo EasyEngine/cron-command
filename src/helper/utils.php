@@ -36,6 +36,14 @@ function generate_cron_config() {
 			'container' => $is_host ? '' : site_php_container( $cron->site_url ),
 		];
 
+		// One value the INI parser rejects would stop the scheduler for every job, so leave that job out.
+		foreach ( [ 'schedule', 'command', 'user', 'container' ] as $field ) {
+			if ( ! is_ini_safe( $job[ $field ] ) ) {
+				EE::warning( sprintf( 'Cron %s is left out of the scheduler config: its %s cannot be written to it.', $cron->id, $field ) );
+				continue 2;
+			}
+		}
+
 		$jobs[] = $job;
 	}
 
@@ -130,6 +138,43 @@ function is_valid_cron_field( $field, $min, $max, array $names ) {
 	}
 
 	return true;
+}
+
+/**
+ * Checks that a value can be written to ofelia's INI config without a parse error, which would stop the scheduler.
+ * Mirrors gcfg: `"` toggles quoting, `\` may only escape `"` (and `\`, `n`, `t`, `b` inside quotes), and an
+ * unquoted `;` or `#` starts a comment.
+ *
+ * @param string $value Value to check.
+ *
+ * @return bool
+ */
+function is_ini_safe( $value ) {
+
+	$value  = (string) $value;
+	$quoted = false;
+	$length = strlen( $value );
+
+	if ( preg_match( '/[\r\n]/', $value ) ) {
+		return false;
+	}
+
+	for ( $i = 0; $i < $length; $i ++ ) {
+		$char = $value[ $i ];
+		if ( '\\' === $char ) {
+			$next = $i + 1 < $length ? $value[ $i + 1 ] : '';
+			if ( '"' !== $next && ! ( $quoted && in_array( $next, [ '\\', 'n', 't', 'b' ], true ) ) ) {
+				return false;
+			}
+			$i ++;
+		} elseif ( '"' === $char ) {
+			$quoted = ! $quoted;
+		} elseif ( ! $quoted && ( ';' === $char || '#' === $char ) ) {
+			break;
+		}
+	}
+
+	return ! $quoted;
 }
 
 /**
