@@ -12,7 +12,14 @@ function update_cron_config() {
 
 	$config = generate_cron_config();
 	file_put_contents( EE_SERVICE_DIR . '/cron/conf/config.ini', $config );
-	\EE_DOCKER::restart_container( EE_CRON_SCHEDULER );
+
+	// Reload the scheduler only if it runs: a disabled or missing one reads the config when it is next started.
+	$status = EE::launch( "docker inspect -f '{{.State.Status}}' " . EE_CRON_SCHEDULER );
+	if ( 0 === $status->return_code && in_array( trim( $status->stdout ), [ 'running', 'restarting' ], true ) ) {
+		\EE_DOCKER::restart_container( EE_CRON_SCHEDULER );
+	} else {
+		EE::debug( EE_CRON_SCHEDULER . ' is not running, not restarting it for the new config.' );
+	}
 }
 
 /**
