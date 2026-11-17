@@ -298,7 +298,7 @@ class Cron_Command extends EE_Command {
 		}
 
 		// Validate everything before the user warning below, so it isn't printed for an update that then fails.
-		if ( $command ) {
+		if ( null !== $command ) {
 			$command                   = $this->add_sh_c_wrapper( $command );
 			$data_to_update['command'] = $command;
 		}
