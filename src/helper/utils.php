@@ -33,6 +33,8 @@ function generate_cron_config() {
 			'command'   => $cron->command,
 			// ofelia refuses to start when a job-local section has a user.
 			'user'      => $is_host ? '' : (string) $cron->user,
+			// Mustache treats "0" as false, so the template can't test the user itself.
+			'has_user'  => ! $is_host && '' !== (string) $cron->user,
 			'container' => $is_host ? '' : site_php_container( $cron->site_url ),
 		];
 
