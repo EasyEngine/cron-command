@@ -159,7 +159,7 @@ class Cron_Command extends EE_Command {
 		$this->validate_command( $command );
 		$command = $this->add_sh_c_wrapper( $command );
 		// A command passed already wrapped is stored as is, so its payload can still be empty.
-		if ( preg_match( '/^\s*\S*sh\s+-c(\s+(\'\s*\'|"\s*"))?\s*$/', $command ) ) {
+		if ( preg_match( '/^\s*(\S*\/)?(sh|bash|dash|ash|zsh|ksh)\s+-c(\s+(\'\s*\'|"\s*")(\s.*)?)?\s*$/s', $command ) ) {
 			EE::error( 'The cron command cannot be empty.' );
 		}
 
