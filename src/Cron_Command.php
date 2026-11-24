@@ -132,6 +132,9 @@ class Cron_Command extends EE_Command {
 	 */
 	private function validate_command( $command ) {
 
+		if ( '' === trim( (string) $command ) ) {
+			EE::error( 'The cron command cannot be empty.' );
+		}
 		if ( strpos( $command, ';' ) !== false ) {
 			EE::error( 'Command chaining using `;` - semi-colon is not supported currently. You can either use `&&` or `||` or creating a second cron job for the chained command.' );
 		}
@@ -266,6 +269,11 @@ class Cron_Command extends EE_Command {
 
 		EE\Utils\delem_log( 'ee cron add start' );
 
+		// The "at least one" check below treats an empty command as not passed, so validate it first.
+		if ( isset( $assoc_args['command'] ) ) {
+			$this->validate_command( $assoc_args['command'] );
+		}
+
 		$data_to_update = [];
 		$site           = EE\Utils\get_flag_value( $assoc_args, 'site' );
 		$command        = EE\Utils\get_flag_value( $assoc_args, 'command' );
@@ -291,8 +299,7 @@ class Cron_Command extends EE_Command {
 		}
 
 		// Validate everything before the user warning below, so it isn't printed for an update that then fails.
-		if ( $command ) {
-			$this->validate_command( $command );
+		if ( null !== $command ) {
 			$command                   = $this->add_sh_c_wrapper( $command );
 			$data_to_update['command'] = $command;
 		}
