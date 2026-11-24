@@ -108,7 +108,8 @@ class Cron_Command extends EE_Command {
 			'schedule' => $schedule,
 		];
 
-		if ( $user ) {
+		// A uid of 0 is a valid user, so test for presence, not truthiness.
+		if ( null !== $user ) {
 			$cron_data['user'] = $user;
 		}
 
@@ -131,6 +132,9 @@ class Cron_Command extends EE_Command {
 	 */
 	private function validate_command( $command ) {
 
+		if ( '' === trim( (string) $command ) ) {
+			EE::error( 'The cron command cannot be empty.' );
+		}
 		if ( strpos( $command, ';' ) !== false ) {
 			EE::error( 'Command chaining using `;` - semi-colon is not supported currently. You can either use `&&` or `||` or creating a second cron job for the chained command.' );
 		}
@@ -265,6 +269,11 @@ class Cron_Command extends EE_Command {
 
 		EE\Utils\delem_log( 'ee cron add start' );
 
+		// The "at least one" check below treats an empty command as not passed, so validate it first.
+		if ( isset( $assoc_args['command'] ) ) {
+			$this->validate_command( $assoc_args['command'] );
+		}
+
 		$data_to_update = [];
 		$site           = EE\Utils\get_flag_value( $assoc_args, 'site' );
 		$command        = EE\Utils\get_flag_value( $assoc_args, 'command' );
@@ -272,7 +281,7 @@ class Cron_Command extends EE_Command {
 		$user           = EE\Utils\get_flag_value( $assoc_args, 'user' );
 		$cron_id        = $args[0];
 
-		if ( ! $site && ! $command && ! $schedule && ! $user ) {
+		if ( ! $site && ! $command && ! $schedule && null === $user ) {
 			EE::error( 'You should specify at least one of - site, command, schedule or user to update' );
 		}
 
@@ -290,8 +299,7 @@ class Cron_Command extends EE_Command {
 		}
 
 		// Validate everything before the user warning below, so it isn't printed for an update that then fails.
-		if ( $command ) {
-			$this->validate_command( $command );
+		if ( null !== $command ) {
 			$command                   = $this->add_sh_c_wrapper( $command );
 			$data_to_update['command'] = $command;
 		}
@@ -304,14 +312,14 @@ class Cron_Command extends EE_Command {
 			if ( null !== $user ) {
 				EE::error( self::HOST_USER_ERROR );
 			}
-			if ( ! empty( $cron->user ) ) {
+			if ( '' !== (string) $cron->user ) {
 				EE::warning( sprintf( 'Host cron jobs run as root in the cron scheduler container, dropping user %s.', $cron->user ) );
 				$data_to_update['user'] = null;
 			}
-		} elseif ( $user ) {
+		} elseif ( null !== $user ) {
 			$this->validate_user( $user );
 			$data_to_update['user'] = $user;
-		} elseif ( empty( $cron->user ) ) {
+		} elseif ( '' === (string) $cron->user ) {
 			$data_to_update['user'] = 'www-data';
 		}
 
@@ -402,7 +410,7 @@ class Cron_Command extends EE_Command {
 
 		$container = EE\Cron\Utils\site_php_container( $cron->site_url );
 		$command   = $cron->command;
-		$user      = empty( $cron->user ) ? 'root' : $cron->user;
+		$user      = '' === (string) $cron->user ? 'root' : $cron->user;
 
 		if ( 'host' === $cron->site_url ) {
 			EE::exec( $command, true, true );
