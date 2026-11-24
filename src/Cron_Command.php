@@ -408,15 +408,17 @@ class Cron_Command extends EE_Command {
 			EE::error( 'No such cron with id ' . $args[0] );
 		}
 
-		$container = EE\Cron\Utils\site_php_container( $cron->site_url );
-		$command   = $cron->command;
-		$user      = '' === (string) $cron->user ? 'root' : $cron->user;
+		$command = $cron->command;
 
+		// A host job has no site, so there is no php container to look up.
 		if ( 'host' === $cron->site_url ) {
 			EE::exec( $command, true, true );
 
 			return;
 		}
+
+		$container = EE\Cron\Utils\site_php_container( $cron->site_url );
+		$user      = '' === (string) $cron->user ? 'root' : $cron->user;
 
 		EE::exec( "docker exec --user=$user $container $command", true, true );
 	}

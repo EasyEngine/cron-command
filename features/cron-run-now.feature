@@ -41,9 +41,10 @@ Feature: ee cron run-now
     Given the file "/tmp/bh-cron-command-host-runnow" does not exist
     When I run "bin/ee cron create host --command='touch /tmp/bh-cron-command-host-runnow' --schedule='@yearly'"
       And I store the id of the latest cron job for "host" with command containing "bh-cron-command-host-runnow" as "ID"
-      And I run "bin/ee cron run-now {ID}"
+      And I run "bin/ee cron run-now {ID} --debug"
     Then the command should succeed
       And the file "/tmp/bh-cron-command-host-runnow" should exist
+      And STDERR should not contain "docker-compose ps"
 
   Scenario Outline: Unknown ids are rejected
     When I run "bin/ee cron run-now <id>"
