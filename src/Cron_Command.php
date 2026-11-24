@@ -175,33 +175,56 @@ class Cron_Command extends EE_Command {
 	 */
 	private static function has_empty_shell_payload( $command ) {
 
-		if ( ! preg_match( '/^\s*(?:\S*\/)?(?:sh|bash|dash|ash|zsh|ksh)\s+-c(?:\s+(.*))?$/s', $command, $matches ) ) {
+		$words = self::shell_words( $command );
+		if ( count( $words ) < 2 || '-c' !== $words[1] || ! in_array( basename( $words[0] ), [ 'sh', 'bash', 'dash', 'ash', 'zsh', 'ksh' ], true ) ) {
 			return false;
 		}
 
-		// Reads the first word after -c the way sh does: adjacent quoted and unquoted parts join, e.g. '''' is one empty word.
-		$rest  = isset( $matches[1] ) ? $matches[1] : '';
-		$word  = '';
+		return ! isset( $words[2] ) || '' === trim( $words[2] );
+	}
+
+	/**
+	 * Splits a command into words the way sh does, up to the first unquoted operator (`;` is refused earlier).
+	 * Adjacent quoted and unquoted parts join, so `-c''` is `-c` and `''''` is one empty word.
+	 *
+	 * @param string $command Command.
+	 *
+	 * @return string[]
+	 */
+	private static function shell_words( $command ) {
+
+		$words = [];
+		$word  = null;
 		$quote = '';
-		for ( $i = 0, $length = strlen( $rest ); $i < $length; $i++ ) {
-			$char = $rest[ $i ];
-			// Blanks and unquoted operators end the word (`;` is refused earlier).
+		for ( $i = 0, $length = strlen( $command ); $i < $length; $i++ ) {
+			$char = $command[ $i ];
 			if ( '' === $quote && ( ctype_space( $char ) || false !== strpos( '<>|&()', $char ) ) ) {
-				break;
+				if ( null !== $word ) {
+					$words[] = $word;
+					$word    = null;
+				}
+				if ( ! ctype_space( $char ) ) {
+					return $words;
+				}
+				continue;
 			}
+			$word = (string) $word;
 			if ( '' === $quote && ( "'" === $char || '"' === $char ) ) {
 				$quote = $char;
 			} elseif ( '' !== $quote && $char === $quote ) {
 				$quote = '';
-			} elseif ( '\\' === $char && $i + 1 < $length && ( '' === $quote || ( '"' === $quote && false !== strpos( "$`\"\\\n", $rest[ $i + 1 ] ) ) ) ) {
+			} elseif ( '\\' === $char && $i + 1 < $length && ( '' === $quote || ( '"' === $quote && false !== strpos( "$`\"\\\n", $command[ $i + 1 ] ) ) ) ) {
 				// Inside double quotes a backslash only escapes $ ` " \ and a newline.
-				$word .= $rest[ ++$i ];
+				$word .= $command[ ++$i ];
 			} else {
 				$word .= $char;
 			}
 		}
+		if ( null !== $word ) {
+			$words[] = $word;
+		}
 
-		return '' === trim( $word );
+		return $words;
 	}
 
 	/**
