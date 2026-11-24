@@ -185,7 +185,8 @@ class Cron_Command extends EE_Command {
 		$quote = '';
 		for ( $i = 0, $length = strlen( $rest ); $i < $length; $i++ ) {
 			$char = $rest[ $i ];
-			if ( '' === $quote && ctype_space( $char ) ) {
+			// Blanks and unquoted operators end the word (`;` is refused earlier).
+			if ( '' === $quote && ( ctype_space( $char ) || false !== strpos( '<>|&()', $char ) ) ) {
 				break;
 			}
 			if ( '' === $quote && ( "'" === $char || '"' === $char ) ) {
