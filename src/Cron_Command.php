@@ -99,8 +99,7 @@ class Cron_Command extends EE_Command {
 		}
 
 		$schedule = $this->validate_schedule( $schedule );
-		$this->validate_command( $command );
-		$command = $this->add_sh_c_wrapper( $command );
+		$command  = $this->prepare_command( $command );
 
 		$cron_data = [
 			'site_url' => $site,
@@ -144,6 +143,88 @@ class Cron_Command extends EE_Command {
 		if ( ! EE\Cron\Utils\is_ini_safe( $command ) ) {
 			EE::error( 'EasyEngine does not support commands with an unbalanced double quote, a backslash that does not escape a double quote, or invalid UTF-8.' );
 		}
+	}
+
+	/**
+	 * Validates a command and returns it as it is stored, wrapped in `sh -c`.
+	 *
+	 * @param string $command Command passed to the command.
+	 *
+	 * @throws \EE\ExitException
+	 *
+	 * @return string Command to store.
+	 */
+	private function prepare_command( $command ) {
+
+		$this->validate_command( $command );
+		$command = $this->add_sh_c_wrapper( $command );
+		// A command passed already wrapped is stored as is, so its payload can still be empty.
+		if ( self::has_empty_shell_payload( $command ) ) {
+			EE::error( 'The cron command cannot be empty.' );
+		}
+
+		return $command;
+	}
+
+	/**
+	 * Whether a command is `<shell> -c` whose command string, after shell quote removal, is blank.
+	 *
+	 * @param string $command Command as stored.
+	 *
+	 * @return bool
+	 */
+	private static function has_empty_shell_payload( $command ) {
+
+		$words = self::shell_words( $command );
+		if ( count( $words ) < 2 || '-c' !== $words[1] || ! in_array( basename( $words[0] ), [ 'sh', 'bash', 'dash', 'ash', 'zsh', 'ksh' ], true ) ) {
+			return false;
+		}
+
+		return ! isset( $words[2] ) || '' === trim( $words[2] );
+	}
+
+	/**
+	 * Splits a command into words the way sh does, up to the first unquoted operator (`;` is refused earlier).
+	 * Adjacent quoted and unquoted parts join, so `-c''` is `-c` and `''''` is one empty word.
+	 *
+	 * @param string $command Command.
+	 *
+	 * @return string[]
+	 */
+	private static function shell_words( $command ) {
+
+		$words = [];
+		$word  = null;
+		$quote = '';
+		for ( $i = 0, $length = strlen( $command ); $i < $length; $i++ ) {
+			$char = $command[ $i ];
+			if ( '' === $quote && ( ctype_space( $char ) || false !== strpos( '<>|&()', $char ) ) ) {
+				if ( null !== $word ) {
+					$words[] = $word;
+					$word    = null;
+				}
+				if ( ! ctype_space( $char ) ) {
+					return $words;
+				}
+				continue;
+			}
+			$word = (string) $word;
+			if ( '' === $quote && ( "'" === $char || '"' === $char ) ) {
+				$quote = $char;
+			} elseif ( '' !== $quote && $char === $quote ) {
+				$quote = '';
+			} elseif ( '\\' === $char && $i + 1 < $length && ( '' === $quote || ( '"' === $quote && false !== strpos( "$`\"\\\n", $command[ $i + 1 ] ) ) ) ) {
+				// Inside double quotes a backslash only escapes $ ` " \ and a newline.
+				$word .= $command[ ++$i ];
+			} else {
+				$word .= $char;
+			}
+		}
+		if ( null !== $word ) {
+			$words[] = $word;
+		}
+
+		return $words;
 	}
 
 	/**
@@ -269,11 +350,6 @@ class Cron_Command extends EE_Command {
 
 		EE\Utils\delem_log( 'ee cron add start' );
 
-		// The "at least one" check below treats an empty command as not passed, so validate it first.
-		if ( isset( $assoc_args['command'] ) ) {
-			$this->validate_command( $assoc_args['command'] );
-		}
-
 		$data_to_update = [];
 		$site           = EE\Utils\get_flag_value( $assoc_args, 'site' );
 		$command        = EE\Utils\get_flag_value( $assoc_args, 'command' );
@@ -281,7 +357,12 @@ class Cron_Command extends EE_Command {
 		$user           = EE\Utils\get_flag_value( $assoc_args, 'user' );
 		$cron_id        = $args[0];
 
-		if ( ! $site && ! $command && ! $schedule && null === $user ) {
+		if ( null !== $command ) {
+			$command = $this->prepare_command( $command );
+		}
+
+		// Values like "0" are passed values, so test for presence, not truthiness.
+		if ( null === $site && null === $command && null === $schedule && null === $user ) {
 			EE::error( 'You should specify at least one of - site, command, schedule or user to update' );
 		}
 
@@ -290,7 +371,7 @@ class Cron_Command extends EE_Command {
 			EE::error( 'Unable to find cron with id ' . $cron_id );
 		}
 
-		if ( $site ) {
+		if ( null !== $site ) {
 			$site = EE\Utils\remove_trailing_slash( $site );
 			if ( 'host' !== $site ) {
 				$this->validate_site( $site );
@@ -300,15 +381,14 @@ class Cron_Command extends EE_Command {
 
 		// Validate everything before the user warning below, so it isn't printed for an update that then fails.
 		if ( null !== $command ) {
-			$command                   = $this->add_sh_c_wrapper( $command );
 			$data_to_update['command'] = $command;
 		}
-		if ( $schedule ) {
+		if ( null !== $schedule ) {
 			$data_to_update['schedule'] = $this->validate_schedule( $schedule );
 		}
 
 		// Same user rules as create, applied to the job as it will be after the update.
-		if ( 'host' === ( $site ? $site : $cron->site_url ) ) {
+		if ( 'host' === ( null !== $site ? $site : $cron->site_url ) ) {
 			if ( null !== $user ) {
 				EE::error( self::HOST_USER_ERROR );
 			}
@@ -408,15 +488,17 @@ class Cron_Command extends EE_Command {
 			EE::error( 'No such cron with id ' . $args[0] );
 		}
 
-		$container = EE\Cron\Utils\site_php_container( $cron->site_url );
-		$command   = $cron->command;
-		$user      = '' === (string) $cron->user ? 'root' : $cron->user;
+		$command = $cron->command;
 
+		// A host job has no site, so there is no php container to look up.
 		if ( 'host' === $cron->site_url ) {
 			EE::exec( $command, true, true );
 
 			return;
 		}
+
+		$container = EE\Cron\Utils\site_php_container( $cron->site_url );
+		$user      = '' === (string) $cron->user ? 'root' : $cron->user;
 
 		EE::exec( "docker exec --user=$user $container $command", true, true );
 	}

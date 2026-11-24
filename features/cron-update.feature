@@ -200,3 +200,34 @@ Feature: ee cron update
       And the docker container "services_global-cron_1" should stay up for 20 seconds
     When I run "bin/ee cron delete {ID}"
     Then the command should succeed
+
+  Scenario: Updating only the command to 0 changes it
+    Given a php site "bh-cron-command-6.test" exists
+    When I run "bin/ee cron create bh-cron-command-6.test --command='echo bh-cron-command-upd-zero' --schedule='@yearly'"
+      And I store the id of the latest cron job for "bh-cron-command-6.test" with command containing "bh-cron-command-upd-zero" as "ID"
+      And I run "bin/ee cron update {ID} --command=0"
+    Then the command should succeed
+      And STDOUT should contain "Success: Cron update Successfully"
+      And the cron job "{ID}" should have command "sh -c '0'"
+
+  Scenario: A schedule of 0 is validated, not ignored
+    Given a php site "bh-cron-command-6.test" exists
+    When I run "bin/ee cron create bh-cron-command-6.test --command='echo bh-cron-command-upd-sched0' --schedule='@hourly'"
+      And I store the id of the latest cron job for "bh-cron-command-6.test" with command containing "bh-cron-command-upd-sched0" as "ID"
+      And I run "bin/ee cron update {ID} --command='echo bh-cron-command-upd-sched0-new' --schedule=0"
+    Then the command should fail
+      And STDERR should contain "Schedule format should be same as Linux cron"
+      And the cron job "{ID}" should have command "sh -c 'echo bh-cron-command-upd-sched0'"
+      And the cron job "{ID}" should have schedule "@hourly"
+
+  Scenario: A command that is already wrapped but empty is rejected
+    Given a php site "bh-cron-command-6.test" exists
+    When I run "bin/ee cron create bh-cron-command-6.test --command='sh -c' --schedule='@hourly'"
+    Then the command should fail
+      And STDERR should contain "The cron command cannot be empty."
+    When I run "bin/ee cron create bh-cron-command-6.test --command='echo bh-cron-command-upd-wrapped' --schedule='@hourly'"
+      And I store the id of the latest cron job for "bh-cron-command-6.test" with command containing "bh-cron-command-upd-wrapped" as "ID"
+      And I run "bin/ee cron update {ID} --command='sh -c'"
+    Then the command should fail
+      And STDERR should contain "The cron command cannot be empty."
+      And the cron job "{ID}" should have command "sh -c 'echo bh-cron-command-upd-wrapped'"
