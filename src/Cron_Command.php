@@ -159,11 +159,48 @@ class Cron_Command extends EE_Command {
 		$this->validate_command( $command );
 		$command = $this->add_sh_c_wrapper( $command );
 		// A command passed already wrapped is stored as is, so its payload can still be empty.
-		if ( preg_match( '/^\s*(\S*\/)?(sh|bash|dash|ash|zsh|ksh)\s+-c(\s+(\'\s*\'|"\s*")(\s.*)?)?\s*$/s', $command ) ) {
+		if ( self::has_empty_shell_payload( $command ) ) {
 			EE::error( 'The cron command cannot be empty.' );
 		}
 
 		return $command;
+	}
+
+	/**
+	 * Whether a command is `<shell> -c` whose command string, after shell quote removal, is blank.
+	 *
+	 * @param string $command Command as stored.
+	 *
+	 * @return bool
+	 */
+	private static function has_empty_shell_payload( $command ) {
+
+		if ( ! preg_match( '/^\s*(?:\S*\/)?(?:sh|bash|dash|ash|zsh|ksh)\s+-c(?:\s+(.*))?$/s', $command, $matches ) ) {
+			return false;
+		}
+
+		// Reads the first word after -c the way sh does: adjacent quoted and unquoted parts join, e.g. '''' is one empty word.
+		$rest  = isset( $matches[1] ) ? $matches[1] : '';
+		$word  = '';
+		$quote = '';
+		for ( $i = 0, $length = strlen( $rest ); $i < $length; $i++ ) {
+			$char = $rest[ $i ];
+			if ( '' === $quote && ctype_space( $char ) ) {
+				break;
+			}
+			if ( '' === $quote && ( "'" === $char || '"' === $char ) ) {
+				$quote = $char;
+			} elseif ( '' !== $quote && $char === $quote ) {
+				$quote = '';
+			} elseif ( '\\' === $char && $i + 1 < $length && ( '' === $quote || ( '"' === $quote && false !== strpos( "$`\"\\\n", $rest[ $i + 1 ] ) ) ) ) {
+				// Inside double quotes a backslash only escapes $ ` " \ and a newline.
+				$word .= $rest[ ++$i ];
+			} else {
+				$word .= $char;
+			}
+		}
+
+		return '' === trim( $word );
 	}
 
 	/**
